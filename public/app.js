@@ -247,7 +247,10 @@ async function loadData({ refresh = false } = {}) {
 
   try {
     const res = await fetch(`/api/health-score?${params.toString()}`);
-    const body = await res.json();
+    const contentType = res.headers.get("content-type") || "";
+    const body = contentType.includes("application/json")
+      ? await res.json()
+      : { error: await res.text() };
     if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
     renderPayload(body);
   } catch (error) {
