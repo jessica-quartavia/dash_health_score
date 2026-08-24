@@ -1,0 +1,12 @@
+{
+  "name": "dashboard-health-score-clientes",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Dashboard experimental de Health Score de clientes (modelos completo e simplificado)",
+  "scripts": {
+    "dev": "node scripts/dev-server.mjs",
+    "start": "node scripts/dev-server.mjs",
+    "test": "node --test tests/**/*.test.mjs"
+  }
+}

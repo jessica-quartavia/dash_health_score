@@ -1,0 +1,194 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  classifySituation1,
+  classifySituation2,
+  classifySituation3,
+  classifySituation4,
+  classifyFinal,
+  computeWeightedScore,
+  MODEL_COMPLETO,
+  MODEL_SIMPLIFICADO,
+} from "../lib/scoring.mjs";
+import { countMeetingsInFirstDays } from "../lib/meetings.mjs";
+import { aggregateHealthScore, buildClientHealthRow, DISTRIBUTION_ORDER } from "../lib/health-score.mjs";
+import { filterHealthClients } from "../lib/filters.mjs";
+
+test("situação 1: menos de 45 dias = fase natural", () => {
+  const r = classifySituation1({ meetingsFirst45: 0, cycleDays: 20 });
+  assert.equal(r.key, "Fase natural de acompanhamento");
+  assert.equal(r.score, 100);
+});
+
+test("situação 1: limites 0, 1, 2, >=3", () => {
+  assert.equal(classifySituation1({ meetingsFirst45: 0, cycleDays: 50 }).score, 0);
+  assert.equal(classifySituation1({ meetingsFirst45: 1, cycleDays: 50 }).score, 50);
+  assert.equal(classifySituation1({ meetingsFirst45: 2, cycleDays: 50 }).score, 75);
+  assert.equal(classifySituation1({ meetingsFirst45: 3, cycleDays: 50 }).score, 100);
+  assert.equal(classifySituation1({ meetingsFirst45: 5, cycleDays: 50 }).score, 100);
+});
+
+test("situação 2: limites de média mensal", () => {
+  assert.equal(classifySituation2(1).score, 100);
+  assert.equal(classifySituation2(0.99).score, 75);
+  assert.equal(classifySituation2(0.75).score, 75);
+  assert.equal(classifySituation2(0.74).score, 50);
+  assert.equal(classifySituation2(0.5).score, 50);
+  assert.equal(classifySituation2(0.49).score, 25);
+  assert.equal(classifySituation2(0.25).score, 25);
+  assert.equal(classifySituation2(0.24).score, 0);
+});
+
+test("situação 3: <90 dias sem mecanismo = fase natural", () => {
+  const r = classifySituation3({ implementedCount: 0, cycleDays: 60 });
+  assert.equal(r.key, "Fase natural de implantação");
+  assert.equal(r.score, 100);
+});
+
+test("situação 3: faixas de atraso sem mecanismo", () => {
+  assert.equal(classifySituation3({ implementedCount: 1, cycleDays: 200 }).score, 100);
+  assert.equal(classifySituation3({ implementedCount: 0, cycleDays: 100 }).score, 75);
+  assert.equal(classifySituation3({ implementedCount: 0, cycleDays: 150 }).score, 50);
+  assert.equal(classifySituation3({ implementedCount: 0, cycleDays: 200 }).score, 25);
+  assert.equal(classifySituation3({ implementedCount: 0, cycleDays: 400 }).score, 0);
+});
+
+test("situação 4: limites 0,1,2,3,>=4 e fase natural", () => {
+  assert.equal(classifySituation4({ implementedCount: 0, cycleDays: 30 }).score, 100);
+  assert.equal(classifySituation4({ implementedCount: 0, cycleDays: 100 }).score, 0);
+  assert.equal(classifySituation4({ implementedCount: 1, cycleDays: 100 }).score, 100);
+  assert.equal(classifySituation4({ implementedCount: 2, cycleDays: 100 }).score, 125);
+  assert.equal(classifySituation4({ implementedCount: 3, cycleDays: 100 }).score, 175);
+  assert.equal(classifySituation4({ implementedCount: 4, cycleDays: 100 }).score, 200);
+});
+
+test("modelos de peso e teto 100", () => {
+  const scores = { s1: 100, s2: 100, s3: 100, s4: 200 };
+  const completo = computeWeightedScore(scores, MODEL_COMPLETO);
+  // 10+30+10+100 = 150 → cap 100
+  assert.equal(completo, 100);
+
+  const simplificado = computeWeightedScore({ s1: 0, s2: 100, s3: 0, s4: 200 }, MODEL_SIMPLIFICADO);
+  // 40 + 120 = 160 → cap 100
+  assert.equal(simplificado, 100);
+
+  const mid = computeWeightedScore({ s1: 50, s2: 75, s3: 50, s4: 100 }, MODEL_COMPLETO);
+  // 5 + 22.5 + 5 + 50 = 82.5
+  assert.equal(mid, 82.5);
+});
+
+test("classificação final por faixa", () => {
+  assert.equal(classifyFinal(100), "Saudável");
+  assert.equal(classifyFinal(75), "Saudável");
+  assert.equal(classifyFinal(74), "Atenção");
+  assert.equal(classifyFinal(50), "Atenção");
+  assert.equal(classifyFinal(49), "Risco");
+  assert.equal(classifyFinal(25), "Risco");
+  assert.equal(classifyFinal(24), "Crítico");
+});
+
+test("contagem de reuniões nos primeiros 45 dias", () => {
+  const entry = new Date(Date.UTC(2024, 0, 1));
+  const starts = [
+    new Date(Date.UTC(2024, 0, 10)),
+    new Date(Date.UTC(2024, 0, 40)),
+    new Date(Date.UTC(2024, 1, 20)), // fora
+  ];
+  assert.equal(countMeetingsInFirstDays(starts, entry, 45), 2);
+});
+
+test("percentuais do recorte fecham em 100%", () => {
+  const clients = [
+    { finalClass: "Saudável", healthScore: 90, s1Label: "A", s2Label: "A", s3Label: "A", s4Label: "A" },
+    { finalClass: "Atenção", healthScore: 60, s1Label: "B", s2Label: "B", s3Label: "B", s4Label: "B" },
+    { finalClass: "Risco", healthScore: 40, s1Label: "C", s2Label: "C", s3Label: "C", s4Label: "C" },
+    { finalClass: "Crítico", healthScore: 10, s1Label: "D", s2Label: "D", s3Label: "D", s4Label: "D" },
+  ];
+  const payload = aggregateHealthScore(clients, {
+    model: MODEL_COMPLETO,
+    weights: { s1: 0.1, s2: 0.3, s3: 0.1, s4: 0.5, label: "x", formula: "y" },
+    filters: {},
+    filterOptions: {},
+    metadata: {},
+  });
+  const sumPct =
+    payload.summary.healthyPercent +
+    payload.summary.attentionPercent +
+    payload.summary.riskPercent +
+    payload.summary.criticalPercent;
+  assert.ok(Math.abs(sumPct - 100) < 0.05);
+  assert.deepEqual(
+    payload.healthDistribution.map((row) => row.label),
+    DISTRIBUTION_ORDER.health,
+  );
+});
+
+test("ordem das classificações segue o padrão do dashboard", () => {
+  const clients = [
+    { finalClass: "Crítico", healthScore: 10, s1Label: "Risco crítico", s2Label: "Risco maior", s3Label: "Atenção", s4Label: "Saudável (1)" },
+    { finalClass: "Saudável", healthScore: 90, s1Label: "Fase natural de acompanhamento", s2Label: "Saudável", s3Label: "Risco crítico", s4Label: "Saudável (≥4)" },
+    { finalClass: "Risco", healthScore: 40, s1Label: "Saudável", s2Label: "Risco crítico", s3Label: "Fase natural de implantação", s4Label: "Fase natural de implantação" },
+  ];
+  const payload = aggregateHealthScore(clients, {
+    model: MODEL_COMPLETO,
+    weights: { s1: 0.1, s2: 0.3, s3: 0.1, s4: 0.5, label: "x", formula: "y" },
+    filters: {},
+    filterOptions: {},
+    metadata: {},
+  });
+  assert.deepEqual(payload.situationDistributions.s1.map((row) => row.label), DISTRIBUTION_ORDER.s1);
+  assert.deepEqual(payload.situationDistributions.s4.map((row) => row.label), DISTRIBUTION_ORDER.s4);
+});
+
+test("buildClientHealthRow aplica modelo e teto", () => {
+  const now = new Date(Date.UTC(2024, 6, 1));
+  const client = {
+    id: "1",
+    name: "Ana",
+    codigo: "A1",
+    status: "Ativo",
+    engenheiro_patrimonial: "EP1",
+    programa: "Pharus",
+    data_inicio_ciclo: "2023-01-01",
+    created_at: "2023-01-01",
+  };
+  const calendlyByClient = new Map([
+    [
+      "1",
+      [
+        { client_id: "1", start_time: "2023-01-10T10:00:00Z" },
+        { client_id: "1", start_time: "2023-02-10T10:00:00Z" },
+        { client_id: "1", start_time: "2023-03-10T10:00:00Z" },
+      ],
+    ],
+  ]);
+  const row = buildClientHealthRow({
+    client,
+    calendlyByClient,
+    manualByClient: new Map(),
+    implementedByClient: new Map([["1", 4]]),
+    cancelMap: new Map(),
+    now,
+    model: MODEL_COMPLETO,
+  });
+  assert.ok(row.healthScore <= 100);
+  assert.equal(row.s4Score, 200);
+  assert.ok(row.cycleDays >= 45);
+});
+
+test("filtro por classificação final", () => {
+  const rows = [
+    { analyticalStatus: "Ativo", engineer: "EP1", program: "Pharus", finalClass: "Saudável", s1Key: "Saudável", clientName: "A", clientCode: "1", clientId: "1" },
+    { analyticalStatus: "Ativo", engineer: "EP1", program: "Pharus", finalClass: "Crítico", s1Key: "Risco crítico", clientName: "B", clientCode: "2", clientId: "2" },
+  ];
+  const filtered = filterHealthClients(rows, {
+    status: "active",
+    ep: "all",
+    program: "all",
+    finalClass: "Crítico",
+    situation: "all",
+    search: "",
+  });
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0].clientName, "B");
+});

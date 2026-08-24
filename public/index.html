@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Health Score · Clientes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Carme&family=Ubuntu:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Dashboard experimental</p>
+        <h1>Health Score de Clientes</h1>
+        <p class="subtitle">Comparação de duas metodologias · cálculo no servidor · base Ativos por padrão</p>
+      </div>
+      <div class="topbar-meta" id="metaLine">Carregando…</div>
+    </header>
+
+    <nav class="model-tabs" role="tablist" aria-label="Modelo de score">
+      <button type="button" class="tab active" data-model="completo" role="tab" aria-selected="true">Modelo Completo</button>
+      <button type="button" class="tab" data-model="simplificado" role="tab" aria-selected="false">Modelo Simplificado</button>
+    </nav>
+
+    <section class="formula-card" id="formulaCard">
+      <div>
+        <h2 id="formulaTitle">Modelo Completo</h2>
+        <p class="formula" id="formulaText">—</p>
+        <p class="weights" id="weightsText">—</p>
+      </div>
+      <p class="disclaimer">Score experimental para teste de métricas — não é score oficial definitivo de churn. Resultado limitado a 100.</p>
+    </section>
+
+    <section class="filters" id="filters">
+      <label>
+        <span>Busca</span>
+        <input type="search" id="fSearch" placeholder="Nome, código ou ID" />
+      </label>
+      <label>
+        <span>EP</span>
+        <select id="fEp"></select>
+      </label>
+      <label>
+        <span>Status</span>
+        <select id="fStatus"></select>
+      </label>
+      <label>
+        <span>Programa</span>
+        <select id="fProgram"></select>
+      </label>
+      <label>
+        <span>Classificação final</span>
+        <select id="fFinal"></select>
+      </label>
+      <label>
+        <span>Classificação por situação</span>
+        <select id="fSituation"></select>
+      </label>
+      <div class="filter-actions">
+        <button type="button" class="btn secondary" id="btnReset">Limpar filtros</button>
+        <button type="button" class="btn" id="btnRefresh">Atualizar</button>
+      </div>
+    </section>
+
+    <section class="kpi-grid" id="kpiGrid" aria-live="polite"></section>
+
+    <section class="dist-grid">
+      <article class="panel featured">
+        <div class="panel-head">
+          <h3>Health Score</h3>
+          <div class="tip">
+            <button type="button" class="tip-btn" aria-label="Regras do Health Score">i</button>
+            <div class="tip-panel" role="tooltip">
+              <h4>Classificação final</h4>
+              <ul>
+                <li>Saudável: 75 a 100 — cliente engajado e com mecanismo rodando</li>
+                <li>Atenção: 50 a 74 — algum sinal fraco, monitorar</li>
+                <li>Risco: 25 a 49 — um ou mais pilares comprometidos</li>
+                <li>Crítico: 0 a 24 — alta probabilidade de churn</li>
+                <li>Score final limitado a 100</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div id="healthBars" class="bars"></div>
+      </article>
+      <article class="panel">
+        <div class="panel-head">
+          <h3>Situação 1 · Reuniões nos primeiros 45 dias</h3>
+          <div class="tip">
+            <button type="button" class="tip-btn" aria-label="Regras da Situação 1">i</button>
+            <div class="tip-panel" role="tooltip">
+              <h4>Reuniões nos primeiros 45 dias</h4>
+              <ul>
+                <li>≥ 3 reuniões: Saudável · 100</li>
+                <li>2 reuniões: Atenção · 75</li>
+                <li>1 reunião: Risco · 50</li>
+                <li>0 reuniões: Risco crítico · 0</li>
+                <li>Ainda não completou 45 dias: Fase natural de acompanhamento · 100</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div id="s1Bars" class="bars"></div>
+      </article>
+      <article class="panel">
+        <div class="panel-head">
+          <h3>Situação 2 · Média reuniões/mês</h3>
+          <div class="tip">
+            <button type="button" class="tip-btn" aria-label="Regras da Situação 2">i</button>
+            <div class="tip-panel" role="tooltip">
+              <h4>Média de reuniões por mês</h4>
+              <ul>
+                <li>≥ 1,0: Saudável · 100</li>
+                <li>0,75 a 0,99: Atenção · 75</li>
+                <li>0,50 a 0,74: Risco · 50</li>
+                <li>0,25 a 0,49: Risco maior · 25</li>
+                <li>&lt; 0,25: Risco crítico · 0</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div id="s2Bars" class="bars"></div>
+      </article>
+      <article class="panel">
+        <div class="panel-head">
+          <h3>Implementação De Mecanismos Por Tempo</h3>
+          <div class="tip">
+            <button type="button" class="tip-btn" aria-label="Regras da implementação por tempo">i</button>
+            <div class="tip-panel" role="tooltip">
+              <h4>Implementação por prazo</h4>
+              <ul>
+                <li>≥ 1 mecanismo implantado: Saudável · 100</li>
+                <li>&lt; 90 dias e sem mecanismo: Fase natural de implantação · 100</li>
+                <li>90 a 119 dias sem mecanismo: Atenção · 75</li>
+                <li>120 a 179 dias sem mecanismo: Risco · 50</li>
+                <li>180 a 359 dias sem mecanismo: Risco maior · 25</li>
+                <li>≥ 360 dias sem mecanismo: Risco crítico · 0</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div id="s3Bars" class="bars"></div>
+      </article>
+      <article class="panel">
+        <div class="panel-head">
+          <h3>Quantidade de Mecanismos</h3>
+          <div class="tip">
+            <button type="button" class="tip-btn" aria-label="Regras da quantidade de mecanismos">i</button>
+            <div class="tip-panel" role="tooltip">
+              <h4>Quantidade de mecanismos implantados</h4>
+              <ul>
+                <li>≥ 4: Saudável · 200</li>
+                <li>3: Saudável · 175</li>
+                <li>2: Saudável · 125</li>
+                <li>1: Saudável · 100</li>
+                <li>0: Risco crítico · 0</li>
+                <li>&lt; 90 dias e 0 mecanismos: Fase natural de implantação · 100</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div id="s4Bars" class="bars"></div>
+      </article>
+    </section>
+
+    <section class="panel table-panel">
+      <div class="table-head">
+        <div>
+          <h3>Detalhes por cliente</h3>
+          <p class="muted" id="tableCount">—</p>
+        </div>
+        <button type="button" class="btn secondary" id="btnToggleTable">Mostrar detalhes</button>
+      </div>
+      <div id="tableWrap" class="table-wrap hidden">
+        <table id="clientsTable">
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Código</th>
+              <th>EP</th>
+              <th>Status</th>
+              <th>Programa</th>
+              <th class="num">Dias ciclo</th>
+              <th class="num">Reuniões 45d</th>
+              <th>Class. S1</th>
+              <th class="num">Score S1</th>
+              <th class="num">Média/mês</th>
+              <th>Class. S2</th>
+              <th class="num">Score S2</th>
+              <th class="num">Mecanismos</th>
+              <th>Class. S3</th>
+              <th class="num">Score S3</th>
+              <th>Class. S4</th>
+              <th class="num">Score S4</th>
+              <th class="num">Health Score</th>
+              <th>Classificação final</th>
+            </tr>
+          </thead>
+          <tbody id="clientsBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="footer">
+      Fontes: clients · client_meetings · manual_meetings · meeting_attendance · client_mecanismos · mecanismos · cancellations
+    </footer>
+  </div>
+
+  <div id="errorBanner" class="error-banner hidden" role="alert"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
