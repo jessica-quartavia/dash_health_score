@@ -76,8 +76,13 @@ function fillSelect(select, options, selected) {
 
 function renderKpis(summary) {
   const cards = [
-    { label: "Clientes filtrados", value: fmt.format(summary.totalClients || 0), hint: "Base do recorte atual" },
+    { label: "Clientes filtrados", value: fmt.format(summary.totalClients || 0), hint: "Amostra com reunião ou mecanismo" },
     { label: "Score médio", value: fmt.format(summary.averageScore || 0), hint: "Média do health score final" },
+    {
+      label: "Sem dados",
+      value: fmt.format(summary.discardedForMissingData || 0),
+      hint: "Descartados por falta de reunião e mecanismo",
+    },
     {
       label: "Saudáveis",
       value: fmt.format(summary.healthy || 0),
@@ -89,12 +94,6 @@ function renderKpis(summary) {
       value: fmt.format(summary.attention || 0),
       hint: `${pctFmt.format(summary.attentionPercent || 0)}%`,
       tone: "attention",
-    },
-    {
-      label: "Risco",
-      value: fmt.format(summary.risk || 0),
-      hint: `${pctFmt.format(summary.riskPercent || 0)}%`,
-      tone: "risk",
     },
     {
       label: "Críticos",

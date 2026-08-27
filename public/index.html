@@ -80,8 +80,8 @@
               <ul>
                 <li>Saudável: 75 a 100 — cliente engajado e com mecanismo rodando</li>
                 <li>Atenção: 50 a 74 — algum sinal fraco, monitorar</li>
-                <li>Risco: 25 a 49 — um ou mais pilares comprometidos</li>
-                <li>Crítico: 0 a 24 — alta probabilidade de churn</li>
+                <li>Crítico: 0 a 49 — alta probabilidade de churn</li>
+                <li>Clientes sem reunião e sem mecanismo saem da amostra</li>
                 <li>Score final limitado a 100</li>
               </ul>
             </div>
@@ -99,8 +99,8 @@
               <ul>
                 <li>≥ 3 reuniões: Saudável · 100</li>
                 <li>2 reuniões: Atenção · 75</li>
-                <li>1 reunião: Risco · 50</li>
-                <li>0 reuniões: Risco crítico · 0</li>
+                <li>1 reunião: Crítico · 50</li>
+                <li>0 reuniões: Crítico · 0</li>
                 <li>Ainda não completou 45 dias: Fase natural de acompanhamento · 100</li>
               </ul>
             </div>
@@ -118,9 +118,9 @@
               <ul>
                 <li>≥ 1,0: Saudável · 100</li>
                 <li>0,75 a 0,99: Atenção · 75</li>
-                <li>0,50 a 0,74: Risco · 50</li>
-                <li>0,25 a 0,49: Risco maior · 25</li>
-                <li>&lt; 0,25: Risco crítico · 0</li>
+                <li>0,50 a 0,74: Crítico · 50</li>
+                <li>0,25 a 0,49: Crítico · 25</li>
+                <li>&lt; 0,25: Crítico · 0</li>
               </ul>
             </div>
           </div>
@@ -138,9 +138,9 @@
                 <li>≥ 1 mecanismo implantado: Saudável · 100</li>
                 <li>&lt; 90 dias e sem mecanismo: Fase natural de implantação · 100</li>
                 <li>90 a 119 dias sem mecanismo: Atenção · 75</li>
-                <li>120 a 179 dias sem mecanismo: Risco · 50</li>
-                <li>180 a 359 dias sem mecanismo: Risco maior · 25</li>
-                <li>≥ 360 dias sem mecanismo: Risco crítico · 0</li>
+                <li>120 a 179 dias sem mecanismo: Crítico · 50</li>
+                <li>180 a 359 dias sem mecanismo: Crítico · 25</li>
+                <li>≥ 360 dias sem mecanismo: Crítico · 0</li>
               </ul>
             </div>
           </div>
@@ -159,7 +159,7 @@
                 <li>3: Saudável · 175</li>
                 <li>2: Saudável · 125</li>
                 <li>1: Saudável · 100</li>
-                <li>0: Risco crítico · 0</li>
+                <li>0: Crítico · 0</li>
                 <li>&lt; 90 dias e 0 mecanismos: Fase natural de implantação · 100</li>
               </ul>
             </div>

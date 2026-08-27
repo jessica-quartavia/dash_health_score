@@ -12,7 +12,7 @@ import {
 } from "../lib/scoring.mjs";
 import { countMeetingsInFirstDays } from "../lib/meetings.mjs";
 import { aggregateHealthScore, buildClientHealthRow, DISTRIBUTION_ORDER } from "../lib/health-score.mjs";
-import { filterHealthClients } from "../lib/filters.mjs";
+import { filterHealthClients, partitionScoreSample } from "../lib/filters.mjs";
 import { CSV_HEADERS, belongsToCluster, rowsToCsv } from "../lib/clusters.mjs";
 
 test("situação 1: menos de 45 dias = fase natural", () => {
@@ -83,8 +83,8 @@ test("classificação final por faixa", () => {
   assert.equal(classifyFinal(75), "Saudável");
   assert.equal(classifyFinal(74), "Atenção");
   assert.equal(classifyFinal(50), "Atenção");
-  assert.equal(classifyFinal(49), "Risco");
-  assert.equal(classifyFinal(25), "Risco");
+  assert.equal(classifyFinal(49), "Crítico");
+  assert.equal(classifyFinal(25), "Crítico");
   assert.equal(classifyFinal(24), "Crítico");
 });
 
@@ -102,7 +102,6 @@ test("percentuais do recorte fecham em 100%", () => {
   const clients = [
     { finalClass: "Saudável", healthScore: 90, s1Label: "A", s2Label: "A", s3Label: "A", s4Label: "A" },
     { finalClass: "Atenção", healthScore: 60, s1Label: "B", s2Label: "B", s3Label: "B", s4Label: "B" },
-    { finalClass: "Risco", healthScore: 40, s1Label: "C", s2Label: "C", s3Label: "C", s4Label: "C" },
     { finalClass: "Crítico", healthScore: 10, s1Label: "D", s2Label: "D", s3Label: "D", s4Label: "D" },
   ];
   const payload = aggregateHealthScore(clients, {
@@ -115,7 +114,6 @@ test("percentuais do recorte fecham em 100%", () => {
   const sumPct =
     payload.summary.healthyPercent +
     payload.summary.attentionPercent +
-    payload.summary.riskPercent +
     payload.summary.criticalPercent;
   assert.ok(Math.abs(sumPct - 100) < 0.05);
   assert.deepEqual(
@@ -126,9 +124,9 @@ test("percentuais do recorte fecham em 100%", () => {
 
 test("ordem das classificações segue o padrão do dashboard", () => {
   const clients = [
-    { finalClass: "Crítico", healthScore: 10, s1Label: "Risco crítico", s2Label: "Risco maior", s3Label: "Atenção", s4Label: "Saudável (1)" },
-    { finalClass: "Saudável", healthScore: 90, s1Label: "Fase natural de acompanhamento", s2Label: "Saudável", s3Label: "Risco crítico", s4Label: "Saudável (≥4)" },
-    { finalClass: "Risco", healthScore: 40, s1Label: "Saudável", s2Label: "Risco crítico", s3Label: "Fase natural de implantação", s4Label: "Fase natural de implantação" },
+    { finalClass: "Crítico", healthScore: 10, s1Label: "Crítico", s2Label: "Crítico", s3Label: "Atenção", s4Label: "Saudável (1)" },
+    { finalClass: "Saudável", healthScore: 90, s1Label: "Fase natural de acompanhamento", s2Label: "Saudável", s3Label: "Crítico", s4Label: "Saudável (≥4)" },
+    { finalClass: "Crítico", healthScore: 40, s1Label: "Saudável", s2Label: "Crítico", s3Label: "Fase natural de implantação", s4Label: "Fase natural de implantação" },
   ];
   const payload = aggregateHealthScore(clients, {
     model: MODEL_COMPLETO,
@@ -179,8 +177,8 @@ test("buildClientHealthRow aplica modelo e teto", () => {
 
 test("filtro por classificação final", () => {
   const rows = [
-    { analyticalStatus: "Ativo", engineer: "EP1", program: "Pharus", finalClass: "Saudável", s1Key: "Saudável", clientName: "A", clientCode: "1", clientId: "1" },
-    { analyticalStatus: "Ativo", engineer: "EP1", program: "Pharus", finalClass: "Crítico", s1Key: "Risco crítico", clientName: "B", clientCode: "2", clientId: "2" },
+    { analyticalStatus: "Ativo", engineer: "EP1", program: "Pharus", finalClass: "Saudável", s1Key: "Saudável", clientName: "A", clientCode: "1", clientId: "1", totalMeetings: 2, implementedCount: 1 },
+    { analyticalStatus: "Ativo", engineer: "EP1", program: "Pharus", finalClass: "Crítico", s1Key: "Crítico", clientName: "B", clientCode: "2", clientId: "2", totalMeetings: 1, implementedCount: 0 },
   ];
   const filtered = filterHealthClients(rows, {
     cluster: "ativos",
@@ -210,11 +208,13 @@ function clusterClientFixture(overrides = {}) {
 }
 
 function clusterRow(overrides = {}) {
+  const client = clusterClientFixture(overrides.client || {});
+  const clientId = String(client.id);
   return buildClientHealthRow({
-    client: clusterClientFixture(overrides.client || {}),
-    calendlyByClient: new Map(),
+    client,
+    calendlyByClient: overrides.calendlyByClient || new Map(),
     manualByClient: new Map(),
-    implementedByClient: new Map(),
+    implementedByClient: overrides.implementedByClient || new Map([[clientId, 1]]),
     cancelMap: overrides.cancelMap || new Map(),
     now: overrides.now || new Date(Date.UTC(2024, 6, 1)),
     model: MODEL_COMPLETO,
@@ -297,4 +297,55 @@ test("CSV inclui reuniões, média/mês, scores S1–S4 e score final", () => {
   assert.ok(Number.isFinite(row.s3Score));
   assert.ok(Number.isFinite(row.s4Score));
   assert.ok(Number.isFinite(row.healthScore));
+});
+
+test("zerados saem da amostra e incrementam descartados", () => {
+  const comDado = {
+    analyticalStatus: "Ativo",
+    engineer: "EP1",
+    program: "Pharus",
+    finalClass: "Saudável",
+    clientName: "Com dado",
+    clientCode: "1",
+    clientId: "1",
+    totalMeetings: 2,
+    implementedCount: 0,
+    healthScore: 80,
+    s1Label: "A",
+    s2Label: "A",
+    s3Label: "A",
+    s4Label: "A",
+  };
+  const zerado = {
+    analyticalStatus: "Ativo",
+    engineer: "EP1",
+    program: "Pharus",
+    finalClass: "Crítico",
+    clientName: "Zerado",
+    clientCode: "2",
+    clientId: "2",
+    totalMeetings: 0,
+    implementedCount: 0,
+    healthScore: 0,
+    s1Label: "A",
+    s2Label: "A",
+    s3Label: "A",
+    s4Label: "A",
+  };
+  const { discarded, eligible } = partitionScoreSample([comDado, zerado], { cluster: "ativos" });
+  assert.equal(discarded.length, 1);
+  assert.equal(discarded[0].clientName, "Zerado");
+  assert.equal(eligible.length, 1);
+  assert.equal(eligible[0].clientName, "Com dado");
+
+  const payload = aggregateHealthScore(eligible, {
+    model: MODEL_COMPLETO,
+    weights: { s1: 0.1, s2: 0.3, s3: 0.1, s4: 0.5, label: "x", formula: "y" },
+    filters: {},
+    filterOptions: {},
+    metadata: {},
+    discardedForMissingData: discarded.length,
+  });
+  assert.equal(payload.summary.totalClients, 1);
+  assert.equal(payload.summary.discardedForMissingData, 1);
 });

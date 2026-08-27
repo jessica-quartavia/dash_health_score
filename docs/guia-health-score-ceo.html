@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Guia do Health Score · Material para o CEO</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Carme&family=Ubuntu:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --black: #0a0a0a;
+      --white: #ffffff;
+      --off-white: #faf8f5;
+      --muted: #737373;
+      --border: #e5e5e5;
+      --coral: #e85d3a;
+      --success: #22a45a;
+      --warning: #d18426;
+      --risk: #c45a28;
+      --destructive: #ea6c4c;
+      --radius: 4px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      background: var(--off-white);
+      color: var(--black);
+    }
+
+    body {
+      font-family: Carme, "Segoe UI", system-ui, sans-serif;
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    h1, h2, h3, .eyebrow, .kicker, .print-bar button, th {
+      font-family: Ubuntu, Carme, sans-serif;
+    }
+
+    .print-bar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 24px;
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .print-bar p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .print-bar button {
+      border: 0;
+      border-radius: var(--radius);
+      padding: 10px 18px;
+      background: var(--coral);
+      color: var(--white);
+      font-weight: 500;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .page {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 40px 28px 80px;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--coral);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 500;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: 34px;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+    }
+
+    .lead {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .callout {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--coral);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      margin: 0 0 32px;
+    }
+
+    .callout strong { color: var(--coral); }
+
+    h2 {
+      margin: 36px 0 12px;
+      font-size: 22px;
+      letter-spacing: -0.02em;
+    }
+
+    h3 {
+      margin: 22px 0 8px;
+      font-size: 16px;
+    }
+
+    p { margin: 0 0 12px; }
+
+    ul, ol { margin: 0 0 14px; padding-left: 20px; }
+    li + li { margin-top: 6px; }
+
+    .muted { color: var(--muted); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin: 0 0 16px;
+      font-size: 13.5px;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f3f1ec;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 0 0 16px;
+    }
+
+    .kpi {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+    }
+
+    .kpi .label {
+      margin: 0 0 6px;
+      font-family: Ubuntu, sans-serif;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .kpi .range {
+      margin: 0 0 6px;
+      font-family: Ubuntu, sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    .kpi p { margin: 0; font-size: 14px; }
+
+    .kpi.healthy { border-color: var(--success); }
+    .kpi.attention { border-color: var(--warning); }
+    .kpi.risk { border-color: var(--risk); }
+    .kpi.critical { border-color: var(--destructive); }
+
+    .section {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    footer {
+      margin-top: 40px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media print {
+      .print-bar { display: none; }
+      body { background: white; }
+      .page { max-width: none; padding: 0; }
+      h2 { page-break-after: avoid; }
+      .callout, table, .kpi-grid { break-inside: avoid; }
+      @page {
+        size: A4;
+        margin: 16mm 16mm 18mm;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-bar">
+    <p>Guia executivo · Health Score de Clientes · para salvar como PDF, use Imprimir → Destino: Salvar como PDF</p>
+    <button type="button" onclick="window.print()">Salvar / imprimir PDF</button>
+  </div>
+
+  <main class="page">
+    <p class="eyebrow">Pharus · Material interno para o CEO</p>
+    <h1>Como ler o dashboard de Health Score</h1>
+    <p class="lead">Este guia percorre a tela na ordem em que ela aparece: o que o número significa, por que existe e quando vale prestar atenção.</p>
+
+    <div class="callout">
+      <p><strong>Aviso importante.</strong> O Health Score é um indicador experimental, feito para testar métricas de relacionamento. Ele <strong>não é um score oficial de churn</strong> e não deve ser usado sozinho para decidir cancelamento, renovação ou cobrança.</p>
+      <p style="margin:0">O resultado de cada cliente é limitado a 100, mesmo quando alguma situação pontua acima disso.</p>
+    </div>
+
+    <section class="section">
+      <h2>1. O que este dashboard responde</h2>
+      <p>A pergunta central é: <strong>como está a saúde do relacionamento com cada cliente da carteira?</strong></p>
+      <p>O sistema lê a BASE QV (mesma base da Jornada) e resume dois pilares:</p>
+      <ul>
+        <li><strong>Reuniões</strong> — o cliente está sendo acompanhado com cadência?</li>
+        <li><strong>Mecanismos</strong> — o trabalho patrimonial foi implantado, e em quanto tempo?</li>
+      </ul>
+      <p>Há dois jeitos de ponderar esses pilares (Modelo Completo e Modelo Simplificado) e quatro recortes de carteira (Ativos, Renovados, Cancelados e Total). Tudo o que você vê — cartões, barras e tabela — é sempre o recorte escolhido, com o modelo escolhido.</p>
+    </section>
+
+    <section class="section">
+      <h2>2. Como navegar na tela</h2>
+      <h3>Modelo Completo / Modelo Simplificado</h3>
+      <p>É o interruptor do topo. Troca só a <em>receita</em> do score: quais situações entram e com que peso. Os dados de reuniões e mecanismos continuam os mesmos.</p>
+
+      <h3>Recorte</h3>
+      <p>Fica logo abaixo do modelo. Escolhe <em>quem</em> entra nos gráficos. O padrão é <strong>Ativos</strong>.</p>
+      <ul>
+        <li><strong>Ativos</strong> — clientes com status analítico Ativo. Congelados e cancelados efetivados ficam de fora.</li>
+        <li><strong>Renovados</strong> — clientes com ciclo maior que 1 (já renovaram pelo menos uma vez). Podem estar ativos ou já ter cancelado depois.</li>
+        <li><strong>Cancelados</strong> — só quem tem evidência de cancelamento efetivado. Pedido ou intenção de sair <strong>não</strong> entram.</li>
+        <li><strong>Total</strong> — toda a BASE QV, depois das exclusões locais (casos isolados).</li>
+      </ul>
+      <p>Os recortes <strong>não são exclusivos</strong>. Um cliente ativo e renovado aparece em Ativos e também em Renovados. Um renovado que depois cancelou aparece em Renovados e em Cancelados. Por isso a soma dos três primeiros não precisa bater com o Total.</p>
+
+      <h3>Filtros e CSV</h3>
+      <p>Busca, EP, programa e classificação refinam o recorte. O botão <strong>Baixar CSV</strong> exporta exatamente o que está na tela (recorte + filtros + modelo), para Excel em português.</p>
+    </section>
+
+    <section class="section">
+      <h2>3. Como o score é calculado</h2>
+      <p>Cada cliente recebe quatro notas (situações). Depois elas são ponderadas. O resultado final nunca passa de 100.</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Situação</th>
+            <th>O que mede</th>
+            <th>Completo</th>
+            <th>Simplificado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>S1 · Primeiros 45 dias</td>
+            <td>Quantas reuniões aconteceram no começo do ciclo</td>
+            <td>10%</td>
+            <td>não entra</td>
+          </tr>
+          <tr>
+            <td>S2 · Média por mês</td>
+            <td>Cadência de reuniões ao longo do tempo</td>
+            <td>30%</td>
+            <td>40%</td>
+          </tr>
+          <tr>
+            <td>S3 · Mecanismo no prazo</td>
+            <td>Se já existe pelo menos um mecanismo implantado, e com que atraso</td>
+            <td>10%</td>
+            <td>não entra</td>
+          </tr>
+          <tr>
+            <td>S4 · Quantidade de mecanismos</td>
+            <td>Quantos mecanismos foram implantados</td>
+            <td>50%</td>
+            <td>60%</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p><strong>Modelo Completo:</strong> Health Score = S1×0,1 + S2×0,3 + S3×0,1 + S4×0,5</p>
+      <p><strong>Modelo Simplificado:</strong> Health Score = S2×0,4 + S4×0,6</p>
+      <p>O Simplificado foi feito para olhar só o que mais pesa no dia a dia: cadência de reuniões e volume de mecanismos. O Completo acrescenta o “começo de jornada” (S1) e o “chegou a tempo?” (S3).</p>
+    </section>
+
+    <section class="section">
+      <h2>4. Os seis cartões do topo</h2>
+      <p>Eles respondem, em uma linha, “como está o recorte que estou vendo agora?”. A amostra do score exclui clientes sem nenhum registro (zero reuniões válidas e zero mecanismos implantados).</p>
+
+      <div class="kpi-grid">
+        <article class="kpi">
+          <p class="label">Clientes filtrados</p>
+          <p>Quantas pessoas do recorte têm pelo menos uma reunião ou um mecanismo. É o denominador dos gráficos e da média.</p>
+        </article>
+        <article class="kpi">
+          <p class="label">Score médio</p>
+          <p>Média aritmética do Health Score final desses clientes com dado. Não é uma nota da empresa: é a temperatura média da carteira escolhida.</p>
+        </article>
+        <article class="kpi">
+          <p class="label">Sem dados</p>
+          <p>Quantos do recorte atual foram descartados por falta de reunião e mecanismo. Não entram no score, nos gráficos nem no CSV.</p>
+        </article>
+      </div>
+
+      <p>Os três cartões seguintes partem a amostra com dado em faixas. A porcentagem é sempre sobre os clientes filtrados (com registro).</p>
+
+      <div class="kpi-grid">
+        <article class="kpi healthy">
+          <p class="label">Saudáveis</p>
+          <p class="range">75 a 100</p>
+          <p>Cliente engajado e com mecanismo rodando. Relação em ritmo.</p>
+        </article>
+        <article class="kpi attention">
+          <p class="label">Atenção</p>
+          <p class="range">50 a 74</p>
+          <p>Algum sinal fraco. Vale monitorar, ainda não é alarme.</p>
+        </article>
+        <article class="kpi critical">
+          <p class="label">Críticos</p>
+          <p class="range">0 a 49</p>
+          <p>Alta probabilidade de churn. Prioridade de intervenção.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>5. Gráfico Health Score</h2>
+      <p>É a mesma amostra dos cartões, desenhada em barras: quantos clientes caíram em Saudável, Atenção e Crítico.</p>
+      <p>Leitura prática: se a barra de Crítico cresce ao trocar de Recorte (por exemplo, de Ativos para Cancelados), o modelo está capturando carteira já deteriorada — o esperado. Se cresce dentro de <strong>Ativos</strong>, é sinal operacional: gente ainda na casa, com relacionamento fraco.</p>
+    </section>
+
+    <section class="section">
+      <h2>6. Situação 1 · Reuniões nos primeiros 45 dias</h2>
+      <p>Pergunta: <strong>o onboarding aconteceu de verdade?</strong> Contamos reuniões válidas nos 45 dias após a data de entrada no ciclo.</p>
+      <table>
+        <thead>
+          <tr><th>O que aconteceu</th><th>Classificação</th><th>Nota S1</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Ainda não completou 45 dias</td><td>Fase natural de acompanhamento</td><td>100</td></tr>
+          <tr><td>3 ou mais reuniões</td><td>Saudável</td><td>100</td></tr>
+          <tr><td>2 reuniões</td><td>Atenção</td><td>75</td></tr>
+          <tr><td>1 reunião</td><td>Crítico</td><td>50</td></tr>
+          <tr><td>Nenhuma reunião</td><td>Crítico</td><td>0</td></tr>
+        </tbody>
+      </table>
+      <p>A “fase natural” evita punir cliente novo. Ele entra com nota cheia até completar a janela — depois a conta vale de verdade.</p>
+    </section>
+
+    <section class="section">
+      <h2>7. Situação 2 · Média de reuniões por mês</h2>
+      <p>Pergunta: <strong>o acompanhamento se sustentou depois do começo?</strong> Dividimos as reuniões válidas pelos meses de ciclo (mínimo 1 mês).</p>
+      <table>
+        <thead>
+          <tr><th>Média mensal</th><th>Classificação</th><th>Nota S2</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1,00 ou mais</td><td>Saudável</td><td>100</td></tr>
+          <tr><td>0,75 a 0,99</td><td>Atenção</td><td>75</td></tr>
+          <tr><td>0,50 a 0,74</td><td>Crítico</td><td>50</td></tr>
+          <tr><td>0,25 a 0,49</td><td>Crítico</td><td>25</td></tr>
+          <tr><td>Abaixo de 0,25</td><td>Crítico</td><td>0</td></tr>
+        </tbody>
+      </table>
+      <p>Uma média de 1,0 significa, na prática, cerca de uma reunião por mês. Abaixo de 0,25 é quase ausência de contato.</p>
+    </section>
+
+    <section class="section">
+      <h2>8. Implementação de mecanismos por tempo</h2>
+      <p>No dashboard este gráfico é a Situação 3. Pergunta: <strong>o cliente já saiu do papel e ganhou pelo menos um mecanismo — e isso veio em prazo razoável?</strong></p>
+      <p>Se existe 1 mecanismo ou mais implantado, a nota é 100, independentemente do tempo. Se ainda não existe nenhum, o relógio do ciclo começa a cobrar:</p>
+      <table>
+        <thead>
+          <tr><th>Situação</th><th>Classificação</th><th>Nota S3</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Já tem 1 ou mais mecanismos</td><td>Saudável</td><td>100</td></tr>
+          <tr><td>Menos de 90 dias e nenhum mecanismo</td><td>Fase natural de implantação</td><td>100</td></tr>
+          <tr><td>90 a 119 dias sem mecanismo</td><td>Atenção</td><td>75</td></tr>
+          <tr><td>120 a 179 dias sem mecanismo</td><td>Crítico</td><td>50</td></tr>
+          <tr><td>180 a 359 dias sem mecanismo</td><td>Crítico</td><td>25</td></tr>
+          <tr><td>360 dias ou mais sem mecanismo</td><td>Crítico</td><td>0</td></tr>
+        </tbody>
+      </table>
+      <p>Os primeiros 90 dias sem mecanismo não são tratados como falha: é a janela natural de implantação.</p>
+    </section>
+
+    <section class="section">
+      <h2>9. Quantidade de mecanismos</h2>
+      <p>Situação 4 — o gráfico de maior peso. Pergunta: <strong>quantos mecanismos de fato rodaram?</strong></p>
+      <table>
+        <thead>
+          <tr><th>Mecanismos implantados</th><th>Classificação</th><th>Nota S4</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>4 ou mais</td><td>Saudável (≥4)</td><td>200</td></tr>
+          <tr><td>3</td><td>Saudável (3)</td><td>175</td></tr>
+          <tr><td>2</td><td>Saudável (2)</td><td>125</td></tr>
+          <tr><td>1</td><td>Saudável (1)</td><td>100</td></tr>
+          <tr><td>0, e o ciclo tem menos de 90 dias</td><td>Fase natural de implantação</td><td>100</td></tr>
+          <tr><td>0, e o ciclo já passou de 90 dias</td><td>Crítico</td><td>0</td></tr>
+        </tbody>
+      </table>
+      <p>A nota da S4 pode passar de 100 de propósito: ter três ou quatro mecanismos “puxa” o Health Score para cima, porque este pilar vale 50% no Completo e 60% no Simplificado. Mesmo assim, o <strong>score final do cliente nunca passa de 100</strong>.</p>
+      <p>Exemplo: no Completo, um cliente com S4 = 200 já entrega 100 só neste pilar (200 × 0,5). O teto corta o excesso.</p>
+    </section>
+
+    <section class="section">
+      <h2>10. Os quatro recortes, com mais rigor</h2>
+      <table>
+        <thead>
+          <tr><th>Recorte</th><th>Regra</th><th>Para que serve na conversa de gestão</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Ativos</td>
+            <td>Status analítico = Ativo</td>
+            <td>Carteira viva. É o recorte padrão do dia a dia.</td>
+          </tr>
+          <tr>
+            <td>Renovados</td>
+            <td>Campo <em>ciclo</em> do cliente maior que 1</td>
+            <td>Quem já confiou de novo. Útil para ver se renovação veio com saúde ou só com inércia.</td>
+          </tr>
+          <tr>
+            <td>Cancelados</td>
+            <td>Evidência: data de churn efetivado, distrato assinado, texto de distrato “Assinado”, ou data de churn no cadastro</td>
+            <td>Autópsia. Intenção ou pedido de cancelamento <strong>não</strong> entram — o cliente ainda está na casa.</td>
+          </tr>
+          <tr>
+            <td>Total</td>
+            <td>Todos os clientes da BASE QV (após exclusões locais)</td>
+            <td>Visão de estoque completo: ativos, congelados e cancelados juntos.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>11. Tabela por cliente e o CSV</h2>
+      <p>A tabela (recolhida por padrão) e o arquivo CSV contam a mesma história, linha a linha. Colunas que mais importam na leitura executiva:</p>
+      <ul>
+        <li><strong>Reuniões e média/mês</strong> — volume e cadência.</li>
+        <li><strong>Scores S1 e S2</strong> — qualidade do acompanhamento.</li>
+        <li><strong>Mecanismos e scores S3 e S4</strong> — entrega do trabalho.</li>
+        <li><strong>Health Score e classificação</strong> — a nota final já ponderada e limitada a 100.</li>
+        <li><strong>Ciclo / renovado / data de cancelamento</strong> — contexto de carteira, não de score.</li>
+      </ul>
+      <p>Uma reunião só conta se for válida: aconteceu depois da entrada do cliente, não está no futuro e não foi marcada como cancelada na presença. Reuniões manuais que duplicam um evento já lançado não são somadas duas vezes.</p>
+      <p>Mecanismo implantado é o que está concluído ou implementado — intenção ou rascunho não sobe a contagem.</p>
+    </section>
+
+    <section class="section">
+      <h2>Como usar isso numa reunião de gestão</h2>
+      <ol>
+        <li>Comece em <strong>Ativos + Modelo Completo</strong>. Olhe score médio e a fatia de Críticos.</li>
+        <li>Se Críticos estiverem altos, abra o gráfico que mais “puxou”: S2 (cadência) ou S4 (mecanismos). Em geral é um dos dois.</li>
+        <li>Compare com <strong>Renovados</strong>: renovação com score baixo é alerta de qualidade, não só de volume.</li>
+        <li>Use <strong>Cancelados</strong> para ver o retrato de quem já saiu — não para gerir a carteira viva.</li>
+        <li>Baixe o CSV do recorte se a conversa precisar ir ao cliente específico.</li>
+      </ol>
+    </section>
+
+    <footer>
+      Fontes das regras: cálculo no servidor (situações S1–S4, pesos e teto 100), recortes Ativos / Renovados / Cancelados / Total, BASE QV (clients, reuniões, mecanismos e cancelamentos).<br />
+      Documento gerado para apoio à leitura do dashboard experimental de Health Score. Não substitui a política comercial nem o critério do time de Customer Success.
+    </footer>
+  </main>
+</body>
+</html>
