@@ -90,7 +90,7 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://localhost:${PORT}`);
   const apiPath = normalizeApiPath(url.pathname);
 
-  if (apiPath === "/api/health-score" || apiPath === "/api/health-score/clientes") {
+  if (apiPath === "/api/health-score" || apiPath === "/api/health-score.csv" || apiPath.startsWith("/api/health-score/")) {
     loadLocalEnv();
     try {
       await handleHealthScoreApi(req, res);

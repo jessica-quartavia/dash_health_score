@@ -24,7 +24,7 @@ const el = {
   errorBanner: document.getElementById("errorBanner"),
   fSearch: document.getElementById("fSearch"),
   fEp: document.getElementById("fEp"),
-  fStatus: document.getElementById("fStatus"),
+  fCluster: document.getElementById("fCluster"),
   fProgram: document.getElementById("fProgram"),
   fFinal: document.getElementById("fFinal"),
   fSituation: document.getElementById("fSituation"),
@@ -55,7 +55,7 @@ function currentFilters() {
     model: state.model,
     search: el.fSearch.value.trim(),
     ep: el.fEp.value || "all",
-    status: el.fStatus.value || "active",
+    cluster: el.fCluster.value || "ativos",
     program: el.fProgram.value || "all",
     finalClass: el.fFinal.value || "all",
     situation: el.fSituation.value || "all",
@@ -201,7 +201,7 @@ function renderPayload(payload) {
 
   const options = payload.filters?.options || {};
   const applied = payload.filters?.applied || {};
-  fillSelect(el.fStatus, options.status, applied.status || "active");
+  fillSelect(el.fCluster, options.cluster, applied.cluster || "ativos");
   fillSelect(el.fEp, options.ep, applied.ep || "all");
   fillSelect(el.fProgram, options.program, applied.program || "all");
   fillSelect(el.fFinal, options.finalClass, applied.finalClass || "all");
@@ -236,7 +236,7 @@ async function loadData({ refresh = false } = {}) {
   const filters = currentFilters();
   const params = new URLSearchParams({
     model: filters.model,
-    status: filters.status,
+    cluster: filters.cluster,
     ep: filters.ep,
     program: filters.program,
     finalClass: filters.finalClass,
@@ -276,7 +276,7 @@ document.querySelectorAll(".tab").forEach((btn) => {
 });
 
 ["change"].forEach((evt) => {
-  [el.fEp, el.fStatus, el.fProgram, el.fFinal, el.fSituation].forEach((node) => {
+  [el.fEp, el.fCluster, el.fProgram, el.fFinal, el.fSituation].forEach((node) => {
     node.addEventListener(evt, () => loadData());
   });
 });
@@ -285,7 +285,7 @@ el.fSearch.addEventListener("input", scheduleLoad);
 
 document.getElementById("btnReset").addEventListener("click", () => {
   el.fSearch.value = "";
-  el.fStatus.value = "active";
+  el.fCluster.value = "ativos";
   el.fEp.value = "all";
   el.fProgram.value = "all";
   el.fFinal.value = "all";
@@ -294,6 +294,20 @@ document.getElementById("btnReset").addEventListener("click", () => {
 });
 
 document.getElementById("btnRefresh").addEventListener("click", () => loadData({ refresh: true }));
+
+document.getElementById("btnCsv").addEventListener("click", () => {
+  const filters = currentFilters();
+  const params = new URLSearchParams({
+    model: filters.model,
+    cluster: filters.cluster,
+    ep: filters.ep,
+    program: filters.program,
+    finalClass: filters.finalClass,
+    situation: filters.situation,
+  });
+  if (filters.search) params.set("search", filters.search);
+  window.location.href = `/api/health-score.csv?${params.toString()}`;
+});
 
 el.btnToggleTable.addEventListener("click", () => {
   state.showDetails = !state.showDetails;

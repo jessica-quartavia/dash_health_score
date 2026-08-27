@@ -25,6 +25,11 @@
       <button type="button" class="tab" data-model="simplificado" role="tab" aria-selected="false">Modelo Simplificado</button>
     </nav>
 
+    <label class="cluster-picker">
+      <span>Recorte</span>
+      <select id="fCluster"></select>
+    </label>
+
     <section class="formula-card" id="formulaCard">
       <div>
         <h2 id="formulaTitle">Modelo Completo</h2>
@@ -44,10 +49,6 @@
         <select id="fEp"></select>
       </label>
       <label>
-        <span>Status</span>
-        <select id="fStatus"></select>
-      </label>
-      <label>
         <span>Programa</span>
         <select id="fProgram"></select>
       </label>
@@ -61,6 +62,7 @@
       </label>
       <div class="filter-actions">
         <button type="button" class="btn secondary" id="btnReset">Limpar filtros</button>
+        <button type="button" class="btn secondary" id="btnCsv">Baixar CSV</button>
         <button type="button" class="btn" id="btnRefresh">Atualizar</button>
       </div>
     </section>

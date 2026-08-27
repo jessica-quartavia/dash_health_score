@@ -13,6 +13,7 @@ import {
 import { countMeetingsInFirstDays } from "../lib/meetings.mjs";
 import { aggregateHealthScore, buildClientHealthRow, DISTRIBUTION_ORDER } from "../lib/health-score.mjs";
 import { filterHealthClients } from "../lib/filters.mjs";
+import { CSV_HEADERS, belongsToCluster, rowsToCsv } from "../lib/clusters.mjs";
 
 test("situação 1: menos de 45 dias = fase natural", () => {
   const r = classifySituation1({ meetingsFirst45: 0, cycleDays: 20 });
@@ -182,7 +183,7 @@ test("filtro por classificação final", () => {
     { analyticalStatus: "Ativo", engineer: "EP1", program: "Pharus", finalClass: "Crítico", s1Key: "Risco crítico", clientName: "B", clientCode: "2", clientId: "2" },
   ];
   const filtered = filterHealthClients(rows, {
-    status: "active",
+    cluster: "ativos",
     ep: "all",
     program: "all",
     finalClass: "Crítico",
@@ -191,4 +192,109 @@ test("filtro por classificação final", () => {
   });
   assert.equal(filtered.length, 1);
   assert.equal(filtered[0].clientName, "B");
+});
+
+function clusterClientFixture(overrides = {}) {
+  return {
+    id: "1",
+    name: "Ana",
+    codigo: "A1",
+    status: "Ativo",
+    engenheiro_patrimonial: "EP1",
+    programa: "Pharus",
+    data_inicio_ciclo: "2023-01-01",
+    created_at: "2023-01-01",
+    ciclo: 1,
+    ...overrides,
+  };
+}
+
+function clusterRow(overrides = {}) {
+  return buildClientHealthRow({
+    client: clusterClientFixture(overrides.client || {}),
+    calendlyByClient: new Map(),
+    manualByClient: new Map(),
+    implementedByClient: new Map(),
+    cancelMap: overrides.cancelMap || new Map(),
+    now: overrides.now || new Date(Date.UTC(2024, 6, 1)),
+    model: MODEL_COMPLETO,
+  });
+}
+
+test("analyticalStatus Ativo entra em ativos; congelado e cancelado efetivado não", () => {
+  const ativo = clusterRow({ client: { id: "1", status: "Ativo", ciclo: 1 } });
+  const congelado = clusterRow({ client: { id: "2", status: "Congelado", ciclo: 1 } });
+  const cancelado = clusterRow({
+    client: { id: "3", status: "Ativo", ciclo: 1 },
+    cancelMap: new Map([
+      ["3", { isCancelled: true, date: new Date(Date.UTC(2024, 1, 1)), hasConfirmedDate: true }],
+    ]),
+  });
+
+  assert.equal(belongsToCluster(ativo, "ativos"), true);
+  assert.equal(belongsToCluster(congelado, "ativos"), false);
+  assert.equal(belongsToCluster(cancelado, "ativos"), false);
+
+  const filtered = filterHealthClients([ativo, congelado, cancelado], { cluster: "ativos" });
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0].clientId, "1");
+});
+
+test("ciclo 2 entra em renovados; ciclo 1 não", () => {
+  const renovado = clusterRow({ client: { id: "10", ciclo: 2 } });
+  const ciclo1 = clusterRow({ client: { id: "11", ciclo: 1 } });
+  assert.equal(renovado.hasRenewed, true);
+  assert.equal(renovado.currentCycle, 2);
+  assert.equal(ciclo1.hasRenewed, false);
+  assert.equal(belongsToCluster(renovado, "renovados"), true);
+  assert.equal(belongsToCluster(ciclo1, "renovados"), false);
+  assert.equal(filterHealthClients([renovado, ciclo1], { cluster: "renovados" }).length, 1);
+});
+
+test("só evidência de cancelamento entra em cancelados", () => {
+  const comEvidencia = clusterRow({
+    client: { id: "20", status: "Ativo" },
+    cancelMap: new Map([
+      ["20", { isCancelled: true, date: new Date(Date.UTC(2024, 2, 1)), hasConfirmedDate: true }],
+    ]),
+  });
+  const marcadoSemEvidencia = clusterRow({
+    client: { id: "21", status: "Cancelado" },
+  });
+
+  assert.equal(comEvidencia.hasCancellationEvidence, true);
+  assert.equal(belongsToCluster(comEvidencia, "cancelados"), true);
+  assert.equal(marcadoSemEvidencia.analyticalStatus, "Marcado como cancelado sem confirmação");
+  assert.equal(marcadoSemEvidencia.hasCancellationEvidence, false);
+  assert.equal(belongsToCluster(marcadoSemEvidencia, "cancelados"), false);
+});
+
+test("Total contém ativos, renovados e cancelados", () => {
+  const ativo = clusterRow({ client: { id: "30", status: "Ativo", ciclo: 1 } });
+  const renovado = clusterRow({ client: { id: "31", status: "Ativo", ciclo: 3 } });
+  const cancelado = clusterRow({
+    client: { id: "32", status: "Ativo", ciclo: 2 },
+    cancelMap: new Map([
+      ["32", { isCancelled: true, date: new Date(Date.UTC(2024, 4, 1)), hasConfirmedDate: true }],
+    ]),
+  });
+  const total = filterHealthClients([ativo, renovado, cancelado], { cluster: "total" });
+  assert.equal(total.length, 3);
+  assert.equal(filterHealthClients([ativo, renovado, cancelado], { cluster: "renovados" }).length, 2);
+});
+
+test("CSV inclui reuniões, média/mês, scores S1–S4 e score final", () => {
+  const row = clusterRow({ client: { id: "40", name: "Carla", codigo: "C40", ciclo: 2 } });
+  const csv = rowsToCsv([row]);
+  assert.equal(csv.startsWith("\uFEFF"), true);
+  for (const header of CSV_HEADERS) {
+    assert.ok(csv.includes(header), `CSV deve incluir coluna ${header}`);
+  }
+  assert.ok(Number.isFinite(row.totalMeetings));
+  assert.ok(Number.isFinite(row.avgMeetingsPerMonth));
+  assert.ok(Number.isFinite(row.s1Score));
+  assert.ok(Number.isFinite(row.s2Score));
+  assert.ok(Number.isFinite(row.s3Score));
+  assert.ok(Number.isFinite(row.s4Score));
+  assert.ok(Number.isFinite(row.healthScore));
 });
