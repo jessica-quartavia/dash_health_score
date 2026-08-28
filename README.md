@@ -37,13 +37,14 @@ Abra `http://localhost:3010`.
 | `search` | | Nome, código ou ID |
 | `finalClass` | `all` | Classificação final do score |
 | `situation` | | Ex.: `s1:Saudável`, `s2:Atenção` |
+| `engagementWeight` | `50` | Peso de Engajamento no Health Score, em % |
+| `mechanismWeight` | `50` | Peso de Mecanismos no Health Score, em % |
 
 ## Modelos
 
-**Completo:** S1×10% + S2×30% + S3×10% + S4×50%  
-**Simplificado:** S2×40% + S4×60%  
+**Padrão:** Engajamento (E) × 50% + Mecanismos (M) × 50%
 
-Score final limitado a `min(ponderado, 100)`.
+Os pesos podem ser alterados no dashboard. Eles devem somar 100% e são enviados na query string para recalcular KPIs, tabela e CSV.
 
 ## Testes
 

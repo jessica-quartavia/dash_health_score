@@ -1,195 +1,221 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  classifySituation1,
-  classifySituation2,
-  classifySituation3,
-  classifySituation4,
-  classifyFinal,
-  computeWeightedScore,
-  MODEL_COMPLETO,
-  MODEL_SIMPLIFICADO,
+  classifyByScore,
+  classifyHealth,
+  computeHealthScore,
+  labelScoreBand,
+  normalizeWeights,
+  scoreEngagement,
+  scoreMechanisms,
 } from "../lib/scoring.mjs";
-import { countMeetingsInFirstDays } from "../lib/meetings.mjs";
-import { aggregateHealthScore, buildClientHealthRow, DISTRIBUTION_ORDER } from "../lib/health-score.mjs";
-import { filterHealthClients, partitionScoreSample } from "../lib/filters.mjs";
+import { aggregateHealthScore, buildClientHealthRow, buildHealthScorePayload, DISTRIBUTION_ORDER } from "../lib/health-score.mjs";
+import { filterHealthClients } from "../lib/filters.mjs";
 import { CSV_HEADERS, belongsToCluster, rowsToCsv } from "../lib/clusters.mjs";
+import { WEIGHTS } from "../lib/scoring.mjs";
 
-test("situação 1: menos de 45 dias = fase natural", () => {
-  const r = classifySituation1({ meetingsFirst45: 0, cycleDays: 20 });
-  assert.equal(r.key, "Fase natural de acompanhamento");
-  assert.equal(r.score, 100);
+test("engajamento: limites da média mensal", () => {
+  assert.equal(scoreEngagement(1), 100);
+  assert.equal(scoreEngagement(1.2), 100);
+  assert.equal(scoreEngagement(0.99), 60);
+  assert.equal(scoreEngagement(0.25), 60);
+  assert.equal(scoreEngagement(0.249), 20);
+  assert.equal(scoreEngagement(0.01), 20);
+  assert.equal(scoreEngagement(0), 0);
+  assert.equal(scoreEngagement(-1), 0);
+  assert.equal(scoreEngagement(null), 0);
 });
 
-test("situação 1: limites 0, 1, 2, >=3", () => {
-  assert.equal(classifySituation1({ meetingsFirst45: 0, cycleDays: 50 }).score, 0);
-  assert.equal(classifySituation1({ meetingsFirst45: 1, cycleDays: 50 }).score, 50);
-  assert.equal(classifySituation1({ meetingsFirst45: 2, cycleDays: 50 }).score, 75);
-  assert.equal(classifySituation1({ meetingsFirst45: 3, cycleDays: 50 }).score, 100);
-  assert.equal(classifySituation1({ meetingsFirst45: 5, cycleDays: 50 }).score, 100);
+test("notas E e M leem Saudável, Atenção e Crítico", () => {
+  assert.equal(labelScoreBand(100), "Saudável");
+  assert.equal(labelScoreBand(60), "Atenção");
+  assert.equal(labelScoreBand(20), "Crítico");
+  assert.equal(labelScoreBand(0), "Crítico");
 });
 
-test("situação 2: limites de média mensal", () => {
-  assert.equal(classifySituation2(1).score, 100);
-  assert.equal(classifySituation2(0.99).score, 75);
-  assert.equal(classifySituation2(0.75).score, 75);
-  assert.equal(classifySituation2(0.74).score, 50);
-  assert.equal(classifySituation2(0.5).score, 50);
-  assert.equal(classifySituation2(0.49).score, 25);
-  assert.equal(classifySituation2(0.25).score, 25);
-  assert.equal(classifySituation2(0.24).score, 0);
+test("mecanismos: 0, 1–2 e ≥3", () => {
+  assert.equal(scoreMechanisms(0), 0);
+  assert.equal(scoreMechanisms(1), 60);
+  assert.equal(scoreMechanisms(2), 60);
+  assert.equal(scoreMechanisms(3), 100);
+  assert.equal(scoreMechanisms(8), 100);
 });
 
-test("situação 3: <90 dias sem mecanismo = fase natural", () => {
-  const r = classifySituation3({ implementedCount: 0, cycleDays: 60 });
-  assert.equal(r.key, "Fase natural de implantação");
-  assert.equal(r.score, 100);
+test("todas as combinações de score E/M sem arredondamento extra", () => {
+  const expected = {
+    "100-100": 100,
+    "100-60": 80,
+    "100-0": 50,
+    "60-100": 80,
+    "60-60": 60,
+    "60-0": 30,
+    "20-100": 60,
+    "20-60": 40,
+    "20-0": 10,
+    "0-100": 50,
+    "0-60": 30,
+    "0-0": 0,
+  };
+  for (const e of [100, 60, 20, 0]) {
+    for (const m of [100, 60, 0]) {
+      assert.equal(computeHealthScore(e, m), expected[`${e}-${m}`]);
+    }
+  }
 });
 
-test("situação 3: faixas de atraso sem mecanismo", () => {
-  assert.equal(classifySituation3({ implementedCount: 1, cycleDays: 200 }).score, 100);
-  assert.equal(classifySituation3({ implementedCount: 0, cycleDays: 100 }).score, 75);
-  assert.equal(classifySituation3({ implementedCount: 0, cycleDays: 150 }).score, 50);
-  assert.equal(classifySituation3({ implementedCount: 0, cycleDays: 200 }).score, 25);
-  assert.equal(classifySituation3({ implementedCount: 0, cycleDays: 400 }).score, 0);
+test("pesos customizados recalculam o score final", () => {
+  assert.equal(computeHealthScore(100, 0), 50);
+  assert.equal(computeHealthScore(100, 0, normalizeWeights({ engagementWeight: 70, mechanismWeight: 30 })), 70);
+  assert.equal(computeHealthScore(100, 0, normalizeWeights({ engagementWeight: 30, mechanismWeight: 70 })), 30);
+  assert.equal(computeHealthScore(100, 0, normalizeWeights({ engagementWeight: 80, mechanismWeight: 30 })), 50);
 });
 
-test("situação 4: limites 0,1,2,3,>=4 e fase natural", () => {
-  assert.equal(classifySituation4({ implementedCount: 0, cycleDays: 30 }).score, 100);
-  assert.equal(classifySituation4({ implementedCount: 0, cycleDays: 100 }).score, 0);
-  assert.equal(classifySituation4({ implementedCount: 1, cycleDays: 100 }).score, 100);
-  assert.equal(classifySituation4({ implementedCount: 2, cycleDays: 100 }).score, 125);
-  assert.equal(classifySituation4({ implementedCount: 3, cycleDays: 100 }).score, 175);
-  assert.equal(classifySituation4({ implementedCount: 4, cycleDays: 100 }).score, 200);
+test("classificação por score: ≥70 saudável, ≥20 atenção, demais crítico", () => {
+  assert.equal(classifyByScore(100), "Saudável");
+  assert.equal(classifyByScore(80), "Saudável");
+  assert.equal(classifyByScore(70), "Saudável");
+  assert.equal(classifyByScore(60), "Atenção");
+  assert.equal(classifyByScore(20), "Atenção");
+  assert.equal(classifyByScore(19), "Crítico");
+  assert.equal(classifyByScore(10), "Crítico");
+  assert.equal(classifyByScore(0), "Crítico");
 });
 
-test("modelos de peso e teto 100", () => {
-  const scores = { s1: 100, s2: 100, s3: 100, s4: 200 };
-  const completo = computeWeightedScore(scores, MODEL_COMPLETO);
-  // 10+30+10+100 = 150 → cap 100
-  assert.equal(completo, 100);
-
-  const simplificado = computeWeightedScore({ s1: 0, s2: 100, s3: 0, s4: 200 }, MODEL_SIMPLIFICADO);
-  // 40 + 120 = 160 → cap 100
-  assert.equal(simplificado, 100);
-
-  const mid = computeWeightedScore({ s1: 50, s2: 75, s3: 50, s4: 100 }, MODEL_COMPLETO);
-  // 5 + 22.5 + 5 + 50 = 82.5
-  assert.equal(mid, 82.5);
+test("ordem: Em implantação antes de Sem registro antes de Saudável", () => {
+  assert.equal(
+    classifyHealth({
+      daysSinceEntry: 30,
+      currentCycle: 1,
+      totalMeetings: 0,
+      implementedCount: 0,
+      healthScore: 0,
+    }),
+    "Em implantação",
+  );
+  assert.equal(
+    classifyHealth({
+      daysSinceEntry: 120,
+      currentCycle: 1,
+      totalMeetings: 0,
+      implementedCount: 0,
+      healthScore: 0,
+    }),
+    "Sem registro",
+  );
+  assert.equal(
+    classifyHealth({
+      daysSinceEntry: 200,
+      currentCycle: 1,
+      totalMeetings: 12,
+      implementedCount: 3,
+      healthScore: 100,
+    }),
+    "Saudável",
+  );
 });
 
-test("classificação final por faixa", () => {
-  assert.equal(classifyFinal(100), "Saudável");
-  assert.equal(classifyFinal(75), "Saudável");
-  assert.equal(classifyFinal(74), "Atenção");
-  assert.equal(classifyFinal(50), "Atenção");
-  assert.equal(classifyFinal(49), "Crítico");
-  assert.equal(classifyFinal(25), "Crítico");
-  assert.equal(classifyFinal(24), "Crítico");
+test("ciclo > 1 nunca entra em implantação", () => {
+  assert.equal(
+    classifyHealth({
+      daysSinceEntry: 20,
+      currentCycle: 2,
+      totalMeetings: 0,
+      implementedCount: 0,
+      healthScore: 0,
+    }),
+    "Sem registro",
+  );
+  assert.equal(
+    classifyHealth({
+      daysSinceEntry: 20,
+      currentCycle: 3,
+      totalMeetings: 4,
+      implementedCount: 0,
+      healthScore: 50,
+    }),
+    "Atenção",
+  );
 });
 
-test("contagem de reuniões nos primeiros 45 dias", () => {
-  const entry = new Date(Date.UTC(2024, 0, 1));
-  const starts = [
-    new Date(Date.UTC(2024, 0, 10)),
-    new Date(Date.UTC(2024, 0, 40)),
-    new Date(Date.UTC(2024, 1, 20)), // fora
-  ];
-  assert.equal(countMeetingsInFirstDays(starts, entry, 45), 2);
+test("90 dias é exclusivo: 89 entra em implantação, 90 não", () => {
+  assert.equal(
+    classifyHealth({
+      daysSinceEntry: 89,
+      currentCycle: 1,
+      totalMeetings: 2,
+      implementedCount: 0,
+      healthScore: 50,
+    }),
+    "Em implantação",
+  );
+  assert.equal(
+    classifyHealth({
+      daysSinceEntry: 90,
+      currentCycle: 1,
+      totalMeetings: 2,
+      implementedCount: 0,
+      healthScore: 50,
+    }),
+    "Atenção",
+  );
 });
 
-test("percentuais do recorte fecham em 100%", () => {
+test("percentuais dos cinco estados fecham em 100%", () => {
   const clients = [
-    { finalClass: "Saudável", healthScore: 90, s1Label: "A", s2Label: "A", s3Label: "A", s4Label: "A" },
-    { finalClass: "Atenção", healthScore: 60, s1Label: "B", s2Label: "B", s3Label: "B", s4Label: "B" },
-    { finalClass: "Crítico", healthScore: 10, s1Label: "D", s2Label: "D", s3Label: "D", s4Label: "D" },
+    { finalClass: "Saudável", healthScore: 80, engagementScore: 100, mechanismScore: 60 },
+    { finalClass: "Atenção", healthScore: 40, engagementScore: 20, mechanismScore: 60 },
+    { finalClass: "Crítico", healthScore: 10, engagementScore: 20, mechanismScore: 0 },
+    { finalClass: "Em implantação", healthScore: 0, engagementScore: 0, mechanismScore: 0 },
+    { finalClass: "Sem registro", healthScore: 0, engagementScore: 0, mechanismScore: 0 },
   ];
   const payload = aggregateHealthScore(clients, {
-    model: MODEL_COMPLETO,
-    weights: { s1: 0.1, s2: 0.3, s3: 0.1, s4: 0.5, label: "x", formula: "y" },
+    weights: WEIGHTS,
     filters: {},
     filterOptions: {},
     metadata: {},
   });
   const sumPct =
-    payload.summary.healthyPercent +
-    payload.summary.attentionPercent +
-    payload.summary.criticalPercent;
+    payload.summary.healthyPercent
+    + payload.summary.attentionPercent
+    + payload.summary.criticalPercent
+    + payload.summary.implantingPercent
+    + payload.summary.noRecordPercent;
   assert.ok(Math.abs(sumPct - 100) < 0.05);
   assert.deepEqual(
     payload.healthDistribution.map((row) => row.label),
     DISTRIBUTION_ORDER.health,
   );
+  assert.deepEqual(
+    payload.distributions.engagement.map((row) => row.label),
+    DISTRIBUTION_ORDER.engagement,
+  );
+  assert.deepEqual(
+    payload.distributions.mechanism.map((row) => row.label),
+    DISTRIBUTION_ORDER.mechanism,
+  );
 });
 
-test("ordem das classificações segue o padrão do dashboard", () => {
-  const clients = [
-    { finalClass: "Crítico", healthScore: 10, s1Label: "Crítico", s2Label: "Crítico", s3Label: "Atenção", s4Label: "Saudável (1)" },
-    { finalClass: "Saudável", healthScore: 90, s1Label: "Fase natural de acompanhamento", s2Label: "Saudável", s3Label: "Crítico", s4Label: "Saudável (≥4)" },
-    { finalClass: "Crítico", healthScore: 40, s1Label: "Saudável", s2Label: "Crítico", s3Label: "Fase natural de implantação", s4Label: "Fase natural de implantação" },
-  ];
-  const payload = aggregateHealthScore(clients, {
-    model: MODEL_COMPLETO,
-    weights: { s1: 0.1, s2: 0.3, s3: 0.1, s4: 0.5, label: "x", formula: "y" },
+test("aggregateHealthScore expõe label e fórmula dos pesos ativos", () => {
+  const payload = aggregateHealthScore([], {
+    weights: normalizeWeights({ engagementWeight: 70, mechanismWeight: 30 }),
     filters: {},
     filterOptions: {},
     metadata: {},
   });
-  assert.deepEqual(payload.situationDistributions.s1.map((row) => row.label), DISTRIBUTION_ORDER.s1);
-  assert.deepEqual(payload.situationDistributions.s4.map((row) => row.label), DISTRIBUTION_ORDER.s4);
+  assert.equal(payload.weights.engagement, 0.7);
+  assert.equal(payload.weights.mechanism, 0.3);
+  assert.equal(payload.weights.label, "Pesos: Engajamento (E) = 70% · Mecanismos (M) = 30%");
+  assert.equal(payload.weights.formula, "Health Score = (E × 0,7) + (M × 0,3)");
 });
 
-test("buildClientHealthRow aplica modelo e teto", () => {
-  const now = new Date(Date.UTC(2024, 6, 1));
-  const client = {
-    id: "1",
-    name: "Ana",
-    codigo: "A1",
-    status: "Ativo",
-    engenheiro_patrimonial: "EP1",
-    programa: "Pharus",
-    data_inicio_ciclo: "2023-01-01",
-    created_at: "2023-01-01",
-  };
-  const calendlyByClient = new Map([
-    [
-      "1",
-      [
-        { client_id: "1", start_time: "2023-01-10T10:00:00Z" },
-        { client_id: "1", start_time: "2023-02-10T10:00:00Z" },
-        { client_id: "1", start_time: "2023-03-10T10:00:00Z" },
-      ],
-    ],
-  ]);
-  const row = buildClientHealthRow({
-    client,
-    calendlyByClient,
-    manualByClient: new Map(),
-    implementedByClient: new Map([["1", 4]]),
-    cancelMap: new Map(),
-    now,
-    model: MODEL_COMPLETO,
+test("buildHealthScorePayload repassa pesos ativos", () => {
+  const payload = buildHealthScorePayload({
+    clients: [],
+    weights: normalizeWeights({ engagementWeight: 30, mechanismWeight: 70 }),
   });
-  assert.ok(row.healthScore <= 100);
-  assert.equal(row.s4Score, 200);
-  assert.ok(row.cycleDays >= 45);
-});
-
-test("filtro por classificação final", () => {
-  const rows = [
-    { analyticalStatus: "Ativo", engineer: "EP1", program: "Pharus", finalClass: "Saudável", s1Key: "Saudável", clientName: "A", clientCode: "1", clientId: "1", totalMeetings: 2, implementedCount: 1 },
-    { analyticalStatus: "Ativo", engineer: "EP1", program: "Pharus", finalClass: "Crítico", s1Key: "Crítico", clientName: "B", clientCode: "2", clientId: "2", totalMeetings: 1, implementedCount: 0 },
-  ];
-  const filtered = filterHealthClients(rows, {
-    cluster: "ativos",
-    ep: "all",
-    program: "all",
-    finalClass: "Crítico",
-    situation: "all",
-    search: "",
-  });
-  assert.equal(filtered.length, 1);
-  assert.equal(filtered[0].clientName, "B");
+  assert.equal(payload.weights.engagement, 0.3);
+  assert.equal(payload.weights.mechanism, 0.7);
+  assert.equal(payload.weights.label, "Pesos: Engajamento (E) = 30% · Mecanismos (M) = 70%");
 });
 
 function clusterClientFixture(overrides = {}) {
@@ -217,9 +243,97 @@ function clusterRow(overrides = {}) {
     implementedByClient: overrides.implementedByClient || new Map([[clientId, 1]]),
     cancelMap: overrides.cancelMap || new Map(),
     now: overrides.now || new Date(Date.UTC(2024, 6, 1)),
-    model: MODEL_COMPLETO,
   });
 }
+
+test("buildClientHealthRow aplica E/M e carência pela data de entrada", () => {
+  const now = new Date(Date.UTC(2024, 6, 1));
+  const meetings = [];
+  for (let i = 0; i < 4; i += 1) {
+    const day = String(5 + i).padStart(2, "0");
+    meetings.push({ client_id: "1", start_time: `2024-04-${day}T10:00:00Z` });
+  }
+  const row = buildClientHealthRow({
+    client: clusterClientFixture({
+      data_inicio_ciclo: "2024-04-01",
+      created_at: "2023-01-01",
+    }),
+    calendlyByClient: new Map([["1", meetings]]),
+    manualByClient: new Map(),
+    implementedByClient: new Map([["1", 4]]),
+    cancelMap: new Map(),
+    now,
+  });
+  assert.equal(row.engagementScore, 100);
+  assert.equal(row.mechanismScore, 100);
+  assert.equal(row.healthScore, 100);
+  assert.equal(row.finalClass, "Saudável");
+  assert.equal(row.entrySource, "created_at");
+  assert.ok(row.daysSinceEntry > 90);
+});
+
+test("buildClientHealthRow aplica pesos customizados na classificação final", () => {
+  const now = new Date(Date.UTC(2024, 6, 1));
+  const meetings = [
+    { client_id: "1", start_time: "2024-04-05T10:00:00Z" },
+    { client_id: "1", start_time: "2024-04-12T10:00:00Z" },
+    { client_id: "1", start_time: "2024-04-19T10:00:00Z" },
+    { client_id: "1", start_time: "2024-04-26T10:00:00Z" },
+  ];
+  const row = buildClientHealthRow({
+    client: clusterClientFixture({
+      data_inicio_ciclo: "2024-04-01",
+      created_at: "2023-01-01",
+    }),
+    calendlyByClient: new Map([["1", meetings]]),
+    manualByClient: new Map(),
+    implementedByClient: new Map([["1", 0]]),
+    cancelMap: new Map(),
+    now,
+    weights: normalizeWeights({ engagementWeight: 70, mechanismWeight: 30 }),
+  });
+  assert.equal(row.engagementScore, 100);
+  assert.equal(row.mechanismScore, 0);
+  assert.equal(row.healthScore, 70);
+  assert.equal(row.finalClass, "Saudável");
+});
+
+test("90 dias usam created_at; média de reuniões usa o ciclo", () => {
+  const now = new Date(Date.UTC(2024, 3, 1));
+  const row = buildClientHealthRow({
+    client: clusterClientFixture({
+      created_at: "2024-02-01",
+      data_inicio_ciclo: "2023-01-01",
+      ciclo: 1,
+    }),
+    calendlyByClient: new Map(),
+    manualByClient: new Map(),
+    implementedByClient: new Map([["1", 0]]),
+    cancelMap: new Map(),
+    now,
+  });
+  assert.equal(row.entrySource, "created_at");
+  assert.equal(row.cycleSource, "data_inicio_ciclo");
+  assert.ok(row.daysSinceEntry < 90);
+  assert.ok(row.cycleDays > 90);
+  assert.equal(row.finalClass, "Em implantação");
+});
+
+test("filtro por classificação final", () => {
+  const rows = [
+    { analyticalStatus: "Ativo", engineer: "EP1", program: "Pharus", finalClass: "Saudável", clientName: "A", clientCode: "1", clientId: "1" },
+    { analyticalStatus: "Ativo", engineer: "EP1", program: "Pharus", finalClass: "Crítico", clientName: "B", clientCode: "2", clientId: "2" },
+  ];
+  const filtered = filterHealthClients(rows, {
+    cluster: "ativos",
+    ep: "all",
+    program: "all",
+    finalClass: "Crítico",
+    search: "",
+  });
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0].clientName, "B");
+});
 
 test("analyticalStatus Ativo entra em ativos; congelado e cancelado efetivado não", () => {
   const ativo = clusterRow({ client: { id: "1", status: "Ativo", ciclo: 1 } });
@@ -283,69 +397,55 @@ test("Total contém ativos, renovados e cancelados", () => {
   assert.equal(filterHealthClients([ativo, renovado, cancelado], { cluster: "renovados" }).length, 2);
 });
 
-test("CSV inclui reuniões, média/mês, scores S1–S4 e score final", () => {
+test("CSV inclui E, M e classificação, sem colunas S1–S4", () => {
   const row = clusterRow({ client: { id: "40", name: "Carla", codigo: "C40", ciclo: 2 } });
   const csv = rowsToCsv([row]);
   assert.equal(csv.startsWith("\uFEFF"), true);
   for (const header of CSV_HEADERS) {
     assert.ok(csv.includes(header), `CSV deve incluir coluna ${header}`);
   }
+  assert.equal(csv.includes("Score S1"), false);
+  assert.equal(csv.includes("Score S2"), false);
+  assert.equal(csv.includes("Score S3"), false);
+  assert.equal(csv.includes("Score S4"), false);
   assert.ok(Number.isFinite(row.totalMeetings));
   assert.ok(Number.isFinite(row.avgMeetingsPerMonth));
-  assert.ok(Number.isFinite(row.s1Score));
-  assert.ok(Number.isFinite(row.s2Score));
-  assert.ok(Number.isFinite(row.s3Score));
-  assert.ok(Number.isFinite(row.s4Score));
+  assert.ok(Number.isFinite(row.engagementScore));
+  assert.ok(Number.isFinite(row.mechanismScore));
   assert.ok(Number.isFinite(row.healthScore));
 });
 
-test("zerados saem da amostra e incrementam descartados", () => {
-  const comDado = {
-    analyticalStatus: "Ativo",
-    engineer: "EP1",
-    program: "Pharus",
-    finalClass: "Saudável",
-    clientName: "Com dado",
-    clientCode: "1",
-    clientId: "1",
-    totalMeetings: 2,
-    implementedCount: 0,
-    healthScore: 80,
-    s1Label: "A",
-    s2Label: "A",
-    s3Label: "A",
-    s4Label: "A",
-  };
-  const zerado = {
-    analyticalStatus: "Ativo",
-    engineer: "EP1",
-    program: "Pharus",
-    finalClass: "Crítico",
-    clientName: "Zerado",
-    clientCode: "2",
-    clientId: "2",
-    totalMeetings: 0,
-    implementedCount: 0,
-    healthScore: 0,
-    s1Label: "A",
-    s2Label: "A",
-    s3Label: "A",
-    s4Label: "A",
-  };
-  const { discarded, eligible } = partitionScoreSample([comDado, zerado], { cluster: "ativos" });
-  assert.equal(discarded.length, 1);
-  assert.equal(discarded[0].clientName, "Zerado");
-  assert.equal(eligible.length, 1);
-  assert.equal(eligible[0].clientName, "Com dado");
+test("zerados permanecem na amostra como Sem registro", () => {
+  const now = new Date(Date.UTC(2024, 6, 1));
+  const comDado = buildClientHealthRow({
+    client: clusterClientFixture({ id: "1", name: "Com dado", created_at: "2023-01-01" }),
+    calendlyByClient: new Map([
+      ["1", [{ client_id: "1", start_time: "2023-06-01T10:00:00Z" }]],
+    ]),
+    manualByClient: new Map(),
+    implementedByClient: new Map([["1", 2]]),
+    cancelMap: new Map(),
+    now,
+  });
+  const zerado = buildClientHealthRow({
+    client: clusterClientFixture({ id: "2", name: "Zerado", created_at: "2023-01-01" }),
+    calendlyByClient: new Map(),
+    manualByClient: new Map(),
+    implementedByClient: new Map([["2", 0]]),
+    cancelMap: new Map(),
+    now,
+  });
+  assert.equal(zerado.finalClass, "Sem registro");
+  const filtered = filterHealthClients([comDado, zerado], { cluster: "ativos" });
+  assert.equal(filtered.length, 2);
 
-  const payload = aggregateHealthScore(eligible, {
-    model: MODEL_COMPLETO,
-    weights: { s1: 0.1, s2: 0.3, s3: 0.1, s4: 0.5, label: "x", formula: "y" },
+  const payload = aggregateHealthScore(filtered, {
+    weights: WEIGHTS,
     filters: {},
     filterOptions: {},
     metadata: {},
-    discardedForMissingData: discarded.length,
   });
-  assert.equal(payload.summary.totalClients, 1);
-  assert.equal(payload.summary.discardedForMissingData, 1);
+  assert.equal(payload.summary.totalClients, 2);
+  assert.equal(payload.summary.noRecord, 1);
+  assert.equal(payload.summary.discardedForMissingData, undefined);
 });

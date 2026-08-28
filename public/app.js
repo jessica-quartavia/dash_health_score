@@ -1,9 +1,13 @@
 const state = {
-  model: "completo",
   showDetails: false,
   payload: null,
   loading: false,
   debounce: null,
+  requestId: 0,
+  weights: {
+    engagement: 50,
+    mechanism: 50,
+  },
 };
 
 const el = {
@@ -12,10 +16,8 @@ const el = {
   weightsText: document.getElementById("weightsText"),
   kpiGrid: document.getElementById("kpiGrid"),
   healthBars: document.getElementById("healthBars"),
-  s1Bars: document.getElementById("s1Bars"),
-  s2Bars: document.getElementById("s2Bars"),
-  s3Bars: document.getElementById("s3Bars"),
-  s4Bars: document.getElementById("s4Bars"),
+  engagementBars: document.getElementById("engagementBars"),
+  mechanismBars: document.getElementById("mechanismBars"),
   clientsBody: document.getElementById("clientsBody"),
   tableWrap: document.getElementById("tableWrap"),
   tableCount: document.getElementById("tableCount"),
@@ -27,11 +29,16 @@ const el = {
   fCluster: document.getElementById("fCluster"),
   fProgram: document.getElementById("fProgram"),
   fFinal: document.getElementById("fFinal"),
-  fSituation: document.getElementById("fSituation"),
+  engagementWeightRange: document.getElementById("engagementWeightRange"),
+  engagementWeightInput: document.getElementById("engagementWeightInput"),
+  mechanismWeightRange: document.getElementById("mechanismWeightRange"),
+  mechanismWeightInput: document.getElementById("mechanismWeightInput"),
 };
 
 const fmt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
 const pctFmt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1, minimumFractionDigits: 0 });
+const dateFmt = new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" });
+const WEIGHTS_STORAGE_KEY = "healthScoreWeights";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -43,23 +50,84 @@ function escapeHtml(value) {
 
 function badgeClass(label) {
   const t = String(label || "");
+  if (t === "Em implantação") return "implantacao";
+  if (t === "Sem registro") return "registro";
   if (t.includes("Crítico") || t.includes("crítico")) return "Crítico";
   if (t.startsWith("Saudável")) return "Saudável";
   if (t.startsWith("Atenção")) return "Atenção";
-  if (t.startsWith("Risco")) return "Risco";
   return "";
+}
+
+function formatDate(value) {
+  if (!value) return "—";
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return dateFmt.format(d);
 }
 
 function currentFilters() {
   return {
-    model: state.model,
     search: el.fSearch.value.trim(),
     ep: el.fEp.value || "all",
     cluster: el.fCluster.value || "ativos",
     program: el.fProgram.value || "all",
     finalClass: el.fFinal.value || "all",
-    situation: el.fSituation.value || "all",
   };
+}
+
+function clampWeight(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 50;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+function readStoredWeights() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(WEIGHTS_STORAGE_KEY) || "{}");
+    const engagement = clampWeight(stored.engagement);
+    const mechanism = clampWeight(stored.mechanism);
+    if (engagement + mechanism === 100) {
+      state.weights = { engagement, mechanism };
+    }
+  } catch {
+    state.weights = { engagement: 50, mechanism: 50 };
+  }
+}
+
+function saveWeights() {
+  localStorage.setItem(WEIGHTS_STORAGE_KEY, JSON.stringify(state.weights));
+}
+
+function decimalWeight(value) {
+  return (value / 100).toLocaleString("pt-BR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 2,
+  });
+}
+
+function renderWeightText() {
+  el.formulaText.textContent = `Health Score = (E × ${decimalWeight(state.weights.engagement)}) + (M × ${decimalWeight(state.weights.mechanism)})`;
+  el.weightsText.textContent = `Pesos: Engajamento (E) = ${state.weights.engagement}% · Mecanismos (M) = ${state.weights.mechanism}%`;
+}
+
+function syncWeightControls() {
+  el.engagementWeightRange.value = String(state.weights.engagement);
+  el.engagementWeightInput.value = String(state.weights.engagement);
+  el.mechanismWeightRange.value = String(state.weights.mechanism);
+  el.mechanismWeightInput.value = String(state.weights.mechanism);
+  renderWeightText();
+}
+
+function setWeights(changed, value) {
+  const primary = clampWeight(value);
+  const secondary = 100 - primary;
+  state.requestId += 1;
+  state.weights = changed === "mechanism"
+    ? { engagement: secondary, mechanism: primary }
+    : { engagement: primary, mechanism: secondary };
+  syncWeightControls();
+  saveWeights();
+  scheduleLoad();
 }
 
 function fillSelect(select, options, selected) {
@@ -76,13 +144,8 @@ function fillSelect(select, options, selected) {
 
 function renderKpis(summary) {
   const cards = [
-    { label: "Clientes filtrados", value: fmt.format(summary.totalClients || 0), hint: "Amostra com reunião ou mecanismo" },
+    { label: "Clientes filtrados", value: fmt.format(summary.totalClients || 0), hint: "Recorte atual, incluindo sem registro" },
     { label: "Score médio", value: fmt.format(summary.averageScore || 0), hint: "Média do health score final" },
-    {
-      label: "Sem dados",
-      value: fmt.format(summary.discardedForMissingData || 0),
-      hint: "Descartados por falta de reunião e mecanismo",
-    },
     {
       label: "Saudáveis",
       value: fmt.format(summary.healthy || 0),
@@ -101,6 +164,18 @@ function renderKpis(summary) {
       hint: `${pctFmt.format(summary.criticalPercent || 0)}%`,
       tone: "critical",
     },
+    {
+      label: "Em implantação",
+      value: fmt.format(summary.implanting || 0),
+      hint: `${pctFmt.format(summary.implantingPercent || 0)}%`,
+      tone: "implantacao",
+    },
+    {
+      label: "Sem registro",
+      value: fmt.format(summary.noRecord || 0),
+      hint: `${pctFmt.format(summary.noRecordPercent || 0)}%`,
+      tone: "registro",
+    },
   ];
   el.kpiGrid.innerHTML = cards
     .map(
@@ -116,12 +191,11 @@ function renderKpis(summary) {
 
 function toneForLabel(label) {
   const t = String(label || "");
-  if (t.includes("Fase natural")) return "natural";
+  if (t === "Em implantação") return "implantacao";
+  if (t === "Sem registro") return "registro";
   if (t.includes("Crítico") || t.includes("crítico")) return "critical";
   if (t.startsWith("Saudável")) return "healthy";
   if (t.startsWith("Atenção")) return "attention";
-  if (t.includes("maior")) return "risk-high";
-  if (t.startsWith("Risco")) return "risk";
   return "";
 }
 
@@ -157,18 +231,14 @@ function renderTable(clients) {
         <td>${escapeHtml(c.engineer)}</td>
         <td>${escapeHtml(c.analyticalStatus)}</td>
         <td>${escapeHtml(c.program)}</td>
-        <td class="num">${c.cycleDays == null ? "—" : fmt.format(c.cycleDays)}</td>
-        <td class="num">${fmt.format(c.meetingsFirst45 || 0)}</td>
-        <td><span class="badge ${badgeClass(c.s1Label)}">${escapeHtml(c.s1Label)}</span></td>
-        <td class="num">${fmt.format(c.s1Score)}</td>
+        <td class="num">${c.currentCycle == null ? "—" : fmt.format(c.currentCycle)}</td>
+        <td>${c.hasRenewed ? "sim" : "não"}</td>
+        <td>${escapeHtml(formatDate(c.cancellationDate))}</td>
+        <td class="num">${fmt.format(c.totalMeetings || 0)}</td>
         <td class="num">${fmt.format(c.avgMeetingsPerMonth)}</td>
-        <td><span class="badge ${badgeClass(c.s2Label)}">${escapeHtml(c.s2Label)}</span></td>
-        <td class="num">${fmt.format(c.s2Score)}</td>
+        <td class="num">${fmt.format(c.engagementScore)}</td>
         <td class="num">${fmt.format(c.implementedCount || 0)}</td>
-        <td><span class="badge ${badgeClass(c.s3Label)}">${escapeHtml(c.s3Label)}</span></td>
-        <td class="num">${fmt.format(c.s3Score)}</td>
-        <td><span class="badge ${badgeClass(c.s4Label)}">${escapeHtml(c.s4Label)}</span></td>
-        <td class="num">${fmt.format(c.s4Score)}</td>
+        <td class="num">${fmt.format(c.mechanismScore)}</td>
         <td class="num"><strong>${fmt.format(c.healthScore)}</strong></td>
         <td><span class="badge ${finalBadge}">${escapeHtml(c.finalClass)}</span></td>
       </tr>`;
@@ -176,26 +246,14 @@ function renderTable(clients) {
     .join("");
 }
 
-function syncTabs() {
-  document.querySelectorAll(".tab").forEach((btn) => {
-    const active = btn.dataset.model === state.model;
-    btn.classList.toggle("active", active);
-    btn.setAttribute("aria-selected", active ? "true" : "false");
-  });
-}
-
 function renderPayload(payload) {
   state.payload = payload;
-  const w = payload.weights || {};
-  el.formulaTitle.textContent = state.model === "simplificado" ? "Modelo Simplificado" : "Modelo Completo";
-  el.formulaText.textContent = w.formula || "—";
-  el.weightsText.textContent = w.label || "—";
+  el.formulaTitle.textContent = "Health Score";
+  renderWeightText();
   renderKpis(payload.summary || {});
   renderBars(el.healthBars, payload.healthDistribution);
-  renderBars(el.s1Bars, payload.situationDistributions?.s1);
-  renderBars(el.s2Bars, payload.situationDistributions?.s2);
-  renderBars(el.s3Bars, payload.situationDistributions?.s3);
-  renderBars(el.s4Bars, payload.situationDistributions?.s4);
+  renderBars(el.engagementBars, payload.distributions?.engagement);
+  renderBars(el.mechanismBars, payload.distributions?.mechanism);
   renderTable(payload.clients || []);
 
   const options = payload.filters?.options || {};
@@ -204,7 +262,6 @@ function renderPayload(payload) {
   fillSelect(el.fEp, options.ep, applied.ep || "all");
   fillSelect(el.fProgram, options.program, applied.program || "all");
   fillSelect(el.fFinal, options.finalClass, applied.finalClass || "all");
-  fillSelect(el.fSituation, options.situation, applied.situation || "all");
   if (applied.search != null && document.activeElement !== el.fSearch) {
     el.fSearch.value = applied.search;
   }
@@ -228,21 +285,27 @@ function hideError() {
   el.errorBanner.textContent = "";
 }
 
-async function loadData({ refresh = false } = {}) {
-  if (state.loading) return;
-  state.loading = true;
-  el.metaLine.textContent = "Carregando Health Score…";
+function queryParams({ refresh = false } = {}) {
   const filters = currentFilters();
   const params = new URLSearchParams({
-    model: filters.model,
     cluster: filters.cluster,
     ep: filters.ep,
     program: filters.program,
     finalClass: filters.finalClass,
-    situation: filters.situation,
+    engagementWeight: String(state.weights.engagement),
+    mechanismWeight: String(state.weights.mechanism),
   });
   if (filters.search) params.set("search", filters.search);
   if (refresh) params.set("refresh", "1");
+  return params;
+}
+
+async function loadData({ refresh = false } = {}) {
+  const requestId = state.requestId + 1;
+  state.requestId = requestId;
+  state.loading = true;
+  el.metaLine.textContent = "Carregando Health Score…";
+  const params = queryParams({ refresh });
 
   try {
     const res = await fetch(`/api/health-score?${params.toString()}`);
@@ -251,13 +314,17 @@ async function loadData({ refresh = false } = {}) {
       ? await res.json()
       : { error: await res.text() };
     if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    if (requestId !== state.requestId) return;
     renderPayload(body);
   } catch (error) {
+    if (requestId !== state.requestId) return;
     console.error(error);
     showError(error.message || "Falha ao carregar o dashboard.");
     el.metaLine.textContent = "Erro ao carregar";
   } finally {
-    state.loading = false;
+    if (requestId === state.requestId) {
+      state.loading = false;
+    }
   }
 }
 
@@ -266,21 +333,21 @@ function scheduleLoad() {
   state.debounce = setTimeout(() => loadData(), 280);
 }
 
-document.querySelectorAll(".tab").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    state.model = btn.dataset.model;
-    syncTabs();
-    loadData();
-  });
-});
-
 ["change"].forEach((evt) => {
-  [el.fEp, el.fCluster, el.fProgram, el.fFinal, el.fSituation].forEach((node) => {
+  [el.fEp, el.fCluster, el.fProgram, el.fFinal].forEach((node) => {
     node.addEventListener(evt, () => loadData());
   });
 });
 
 el.fSearch.addEventListener("input", scheduleLoad);
+
+readStoredWeights();
+syncWeightControls();
+
+el.engagementWeightRange.addEventListener("input", () => setWeights("engagement", el.engagementWeightRange.value));
+el.engagementWeightInput.addEventListener("input", () => setWeights("engagement", el.engagementWeightInput.value));
+el.mechanismWeightRange.addEventListener("input", () => setWeights("mechanism", el.mechanismWeightRange.value));
+el.mechanismWeightInput.addEventListener("input", () => setWeights("mechanism", el.mechanismWeightInput.value));
 
 document.getElementById("btnReset").addEventListener("click", () => {
   el.fSearch.value = "";
@@ -288,24 +355,17 @@ document.getElementById("btnReset").addEventListener("click", () => {
   el.fEp.value = "all";
   el.fProgram.value = "all";
   el.fFinal.value = "all";
-  el.fSituation.value = "all";
   loadData();
 });
 
 document.getElementById("btnRefresh").addEventListener("click", () => loadData({ refresh: true }));
 
 document.getElementById("btnCsv").addEventListener("click", () => {
-  const filters = currentFilters();
-  const params = new URLSearchParams({
-    model: filters.model,
-    cluster: filters.cluster,
-    ep: filters.ep,
-    program: filters.program,
-    finalClass: filters.finalClass,
-    situation: filters.situation,
-  });
-  if (filters.search) params.set("search", filters.search);
-  window.location.href = `/api/health-score.csv?${params.toString()}`;
+  window.location.href = `/api/health-score.csv?${queryParams().toString()}`;
+});
+
+document.getElementById("btnPdf").addEventListener("click", () => {
+  window.open("/guia-health-score-ceo.html?print=1", "_blank", "noopener");
 });
 
 el.btnToggleTable.addEventListener("click", () => {
@@ -328,5 +388,4 @@ document.addEventListener("click", () => {
   document.querySelectorAll(".tip.open").forEach((node) => node.classList.remove("open"));
 });
 
-syncTabs();
 loadData();

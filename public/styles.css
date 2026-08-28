@@ -140,6 +140,7 @@ h1 {
 .btn:focus-visible,
 .filters input:focus-visible,
 .filters select:focus-visible,
+.weight-controls input:focus-visible,
 .cluster-picker select:focus-visible,
 .tip-btn:focus-visible {
   outline: none;
@@ -179,9 +180,47 @@ h1 {
 .weights { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
 .disclaimer { margin: 0; max-width: 360px; font-size: 13px; line-height: 1.45; }
 
+.weight-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 14px;
+  min-width: min(460px, 100%);
+}
+
+.weight-controls label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  gap: 8px 12px;
+  align-items: center;
+  font-family: Ubuntu, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.weight-controls span {
+  grid-column: 1 / -1;
+}
+
+.weight-controls input[type="range"] {
+  width: 100%;
+  accent-color: var(--coral);
+}
+
+.weight-controls input[type="number"] {
+  width: 72px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  color: var(--black);
+  border-radius: var(--radius);
+  padding: 10px 8px;
+  font: inherit;
+  font-size: 14px;
+}
+
 .filters {
   display: grid;
-  grid-template-columns: repeat(5, minmax(120px, 1fr)) auto;
+  grid-template-columns: repeat(4, minmax(120px, 1fr)) auto;
   gap: 16px;
   padding: 16px;
   margin-bottom: 24px;
@@ -231,7 +270,7 @@ h1 {
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -264,6 +303,8 @@ h1 {
 .kpi.attention { border-color: var(--warning); }
 .kpi.risk { border-color: var(--risk); }
 .kpi.critical { border-color: var(--destructive); }
+.kpi.implantacao { border-color: var(--muted); }
+.kpi.registro { border-color: #c4c0b8; }
 
 .dist-grid {
   display: grid;
@@ -416,7 +457,9 @@ h1 {
 .bar-fill.risk { background: var(--coral); }
 .bar-fill.risk-high { background: #c45a28; }
 .bar-fill.critical { background: var(--destructive); }
-.bar-fill.natural { background: var(--muted); }
+.bar-fill.natural,
+.bar-fill.implantacao { background: var(--muted); }
+.bar-fill.registro { background: #a8a49c; }
 
 .bar-meta {
   color: var(--muted);
@@ -441,7 +484,7 @@ table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
-  min-width: 1400px;
+  min-width: 1200px;
 }
 
 th, td {
@@ -485,6 +528,8 @@ td.num, th.num {
 .badge.Risco { color: #8a3d16; background: #f8e8df; }
 .badge.Crítico,
 .badge.risco-critico { color: var(--destructive); background: #fbeae5; }
+.badge.implantacao { color: #555; background: #eeeae4; }
+.badge.registro { color: #555; background: #f0eeea; }
 
 .footer {
   margin-top: 24px;
@@ -505,11 +550,16 @@ td.num, th.num {
   z-index: 50;
 }
 
+@media (max-width: 1280px) {
+  .kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
 @media (max-width: 1100px) {
   .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dist-grid { grid-template-columns: 1fr; }
   .formula-card, .topbar { flex-direction: column; }
+  .weight-controls { grid-template-columns: 1fr; }
   .topbar-meta { text-align: left; }
 }
 

@@ -15,15 +15,10 @@
       <div>
         <p class="eyebrow">Dashboard experimental</p>
         <h1>Health Score de Clientes</h1>
-        <p class="subtitle">Comparação de duas metodologias · cálculo no servidor · base Ativos por padrão</p>
+        <p class="subtitle">Engajamento e mecanismos · cálculo no servidor · base Ativos por padrão</p>
       </div>
       <div class="topbar-meta" id="metaLine">Carregando…</div>
     </header>
-
-    <nav class="model-tabs" role="tablist" aria-label="Modelo de score">
-      <button type="button" class="tab active" data-model="completo" role="tab" aria-selected="true">Modelo Completo</button>
-      <button type="button" class="tab" data-model="simplificado" role="tab" aria-selected="false">Modelo Simplificado</button>
-    </nav>
 
     <label class="cluster-picker">
       <span>Recorte</span>
@@ -32,11 +27,23 @@
 
     <section class="formula-card" id="formulaCard">
       <div>
-        <h2 id="formulaTitle">Modelo Completo</h2>
-        <p class="formula" id="formulaText">—</p>
-        <p class="weights" id="weightsText">—</p>
+        <h2 id="formulaTitle">Health Score</h2>
+        <p class="formula" id="formulaText">Health Score = (E × 0,5) + (M × 0,5)</p>
+        <p class="weights" id="weightsText">Pesos: Engajamento (E) = 50% · Mecanismos (M) = 50%</p>
       </div>
-      <p class="disclaimer">Score experimental para teste de métricas — não é score oficial definitivo de churn. Resultado limitado a 100.</p>
+      <div class="weight-controls" aria-label="Pesos do Health Score">
+        <label>
+          <span>Engajamento</span>
+          <input type="range" id="engagementWeightRange" min="0" max="100" step="5" value="50" />
+          <input type="number" id="engagementWeightInput" min="0" max="100" step="5" value="50" />
+        </label>
+        <label>
+          <span>Mecanismos</span>
+          <input type="range" id="mechanismWeightRange" min="0" max="100" step="5" value="50" />
+          <input type="number" id="mechanismWeightInput" min="0" max="100" step="5" value="50" />
+        </label>
+      </div>
+      <p class="disclaimer">Score experimental para teste de métricas — não é score oficial definitivo de churn.</p>
     </section>
 
     <section class="filters" id="filters">
@@ -53,16 +60,13 @@
         <select id="fProgram"></select>
       </label>
       <label>
-        <span>Classificação final</span>
+        <span>Classificação</span>
         <select id="fFinal"></select>
-      </label>
-      <label>
-        <span>Classificação por situação</span>
-        <select id="fSituation"></select>
       </label>
       <div class="filter-actions">
         <button type="button" class="btn secondary" id="btnReset">Limpar filtros</button>
         <button type="button" class="btn secondary" id="btnCsv">Baixar CSV</button>
+        <button type="button" class="btn secondary" id="btnPdf">Imprimir PDF</button>
         <button type="button" class="btn" id="btnRefresh">Atualizar</button>
       </div>
     </section>
@@ -76,13 +80,13 @@
           <div class="tip">
             <button type="button" class="tip-btn" aria-label="Regras do Health Score">i</button>
             <div class="tip-panel" role="tooltip">
-              <h4>Classificação final</h4>
+              <h4>Classificação (primeira que bater)</h4>
               <ul>
-                <li>Saudável: 75 a 100 — cliente engajado e com mecanismo rodando</li>
-                <li>Atenção: 50 a 74 — algum sinal fraco, monitorar</li>
-                <li>Crítico: 0 a 49 — alta probabilidade de churn</li>
-                <li>Clientes sem reunião e sem mecanismo saem da amostra</li>
-                <li>Score final limitado a 100</li>
+                <li>Em implantação: menos de 90 dias desde a entrada e M = 0 (ciclo &gt; 1 nunca entra)</li>
+                <li>Sem registro: 0 reuniões e 0 mecanismos</li>
+                <li>Saudável: score ≥ 70</li>
+                <li>Atenção: score ≥ 20</li>
+                <li>Crítico: demais</li>
               </ul>
             </div>
           </div>
@@ -91,81 +95,38 @@
       </article>
       <article class="panel">
         <div class="panel-head">
-          <h3>Situação 1 · Reuniões nos primeiros 45 dias</h3>
+          <h3>Engajamento (E)</h3>
           <div class="tip">
-            <button type="button" class="tip-btn" aria-label="Regras da Situação 1">i</button>
-            <div class="tip-panel" role="tooltip">
-              <h4>Reuniões nos primeiros 45 dias</h4>
-              <ul>
-                <li>≥ 3 reuniões: Saudável · 100</li>
-                <li>2 reuniões: Atenção · 75</li>
-                <li>1 reunião: Crítico · 50</li>
-                <li>0 reuniões: Crítico · 0</li>
-                <li>Ainda não completou 45 dias: Fase natural de acompanhamento · 100</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-        <div id="s1Bars" class="bars"></div>
-      </article>
-      <article class="panel">
-        <div class="panel-head">
-          <h3>Situação 2 · Média reuniões/mês</h3>
-          <div class="tip">
-            <button type="button" class="tip-btn" aria-label="Regras da Situação 2">i</button>
+            <button type="button" class="tip-btn" aria-label="Regras de Engajamento">i</button>
             <div class="tip-panel" role="tooltip">
               <h4>Média de reuniões por mês</h4>
               <ul>
-                <li>≥ 1,0: Saudável · 100</li>
-                <li>0,75 a 0,99: Atenção · 75</li>
-                <li>0,50 a 0,74: Crítico · 50</li>
-                <li>0,25 a 0,49: Crítico · 25</li>
-                <li>&lt; 0,25: Crítico · 0</li>
+                <li>≥ 1,00 → Saudável (100)</li>
+                <li>0,25 a &lt; 1,00 → Atenção (60)</li>
+                <li>&gt; 0 e &lt; 0,25 → Crítico (20)</li>
+                <li>= 0 → Crítico (0)</li>
               </ul>
             </div>
           </div>
         </div>
-        <div id="s2Bars" class="bars"></div>
+        <div id="engagementBars" class="bars"></div>
       </article>
       <article class="panel">
         <div class="panel-head">
-          <h3>Implementação De Mecanismos Por Tempo</h3>
+          <h3>Mecanismos (M)</h3>
           <div class="tip">
-            <button type="button" class="tip-btn" aria-label="Regras da implementação por tempo">i</button>
+            <button type="button" class="tip-btn" aria-label="Regras de Mecanismos">i</button>
             <div class="tip-panel" role="tooltip">
-              <h4>Implementação por prazo</h4>
+              <h4>Quantidade implantada</h4>
               <ul>
-                <li>≥ 1 mecanismo implantado: Saudável · 100</li>
-                <li>&lt; 90 dias e sem mecanismo: Fase natural de implantação · 100</li>
-                <li>90 a 119 dias sem mecanismo: Atenção · 75</li>
-                <li>120 a 179 dias sem mecanismo: Crítico · 50</li>
-                <li>180 a 359 dias sem mecanismo: Crítico · 25</li>
-                <li>≥ 360 dias sem mecanismo: Crítico · 0</li>
+                <li>≥ 3 → Saudável (100)</li>
+                <li>1 ou 2 → Atenção (60)</li>
+                <li>0 → Crítico (0)</li>
               </ul>
             </div>
           </div>
         </div>
-        <div id="s3Bars" class="bars"></div>
-      </article>
-      <article class="panel">
-        <div class="panel-head">
-          <h3>Quantidade de Mecanismos</h3>
-          <div class="tip">
-            <button type="button" class="tip-btn" aria-label="Regras da quantidade de mecanismos">i</button>
-            <div class="tip-panel" role="tooltip">
-              <h4>Quantidade de mecanismos implantados</h4>
-              <ul>
-                <li>≥ 4: Saudável · 200</li>
-                <li>3: Saudável · 175</li>
-                <li>2: Saudável · 125</li>
-                <li>1: Saudável · 100</li>
-                <li>0: Crítico · 0</li>
-                <li>&lt; 90 dias e 0 mecanismos: Fase natural de implantação · 100</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-        <div id="s4Bars" class="bars"></div>
+        <div id="mechanismBars" class="bars"></div>
       </article>
     </section>
 
@@ -186,20 +147,16 @@
               <th>EP</th>
               <th>Status</th>
               <th>Programa</th>
-              <th class="num">Dias ciclo</th>
-              <th class="num">Reuniões 45d</th>
-              <th>Class. S1</th>
-              <th class="num">Score S1</th>
+              <th class="num">Ciclo</th>
+              <th>Renovado</th>
+              <th>Cancelamento</th>
+              <th class="num">Reuniões</th>
               <th class="num">Média/mês</th>
-              <th>Class. S2</th>
-              <th class="num">Score S2</th>
+              <th class="num">E</th>
               <th class="num">Mecanismos</th>
-              <th>Class. S3</th>
-              <th class="num">Score S3</th>
-              <th>Class. S4</th>
-              <th class="num">Score S4</th>
+              <th class="num">M</th>
               <th class="num">Health Score</th>
-              <th>Classificação final</th>
+              <th>Classificação</th>
             </tr>
           </thead>
           <tbody id="clientsBody"></tbody>

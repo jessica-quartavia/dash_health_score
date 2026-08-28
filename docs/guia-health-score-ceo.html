@@ -231,7 +231,7 @@
 
     <div class="callout">
       <p><strong>Aviso importante.</strong> O Health Score é um indicador experimental, feito para testar métricas de relacionamento. Ele <strong>não é um score oficial de churn</strong> e não deve ser usado sozinho para decidir cancelamento, renovação ou cobrança.</p>
-      <p style="margin:0">O resultado de cada cliente é limitado a 100, mesmo quando alguma situação pontua acima disso.</p>
+      <p style="margin:0">Há um único modelo: Engajamento e Mecanismos, com 50%/50% como padrão. Os pesos podem ser editados no dashboard; o score sai da fórmula, sem teto extra e sem arredondamento.</p>
     </div>
 
     <section class="section">
@@ -239,19 +239,16 @@
       <p>A pergunta central é: <strong>como está a saúde do relacionamento com cada cliente da carteira?</strong></p>
       <p>O sistema lê a BASE QV (mesma base da Jornada) e resume dois pilares:</p>
       <ul>
-        <li><strong>Reuniões</strong> — o cliente está sendo acompanhado com cadência?</li>
-        <li><strong>Mecanismos</strong> — o trabalho patrimonial foi implantado, e em quanto tempo?</li>
+        <li><strong>Engajamento (E)</strong> — o cliente está sendo acompanhado com cadência de reuniões?</li>
+        <li><strong>Mecanismos (M)</strong> — o mecanismo patrimonial foi implantado, e em que volume?</li>
       </ul>
-      <p>Há dois jeitos de ponderar esses pilares (Modelo Completo e Modelo Simplificado) e quatro recortes de carteira (Ativos, Renovados, Cancelados e Total). Tudo o que você vê — cartões, barras e tabela — é sempre o recorte escolhido, com o modelo escolhido.</p>
+      <p>Há quatro recortes de carteira (Ativos, Renovados, Cancelados e Total). Tudo o que você vê — cartões, barras, tabela e CSV — é sempre o recorte escolhido.</p>
     </section>
 
     <section class="section">
       <h2>2. Como navegar na tela</h2>
-      <h3>Modelo Completo / Modelo Simplificado</h3>
-      <p>É o interruptor do topo. Troca só a <em>receita</em> do score: quais situações entram e com que peso. Os dados de reuniões e mecanismos continuam os mesmos.</p>
-
       <h3>Recorte</h3>
-      <p>Fica logo abaixo do modelo. Escolhe <em>quem</em> entra nos gráficos. O padrão é <strong>Ativos</strong>.</p>
+      <p>Fica no topo. Escolhe <em>quem</em> entra nos gráficos. O padrão é <strong>Ativos</strong>.</p>
       <ul>
         <li><strong>Ativos</strong> — clientes com status analítico Ativo. Congelados e cancelados efetivados ficam de fora.</li>
         <li><strong>Renovados</strong> — clientes com ciclo maior que 1 (já renovaram pelo menos uma vez). Podem estar ativos ou já ter cancelado depois.</li>
@@ -261,179 +258,108 @@
       <p>Os recortes <strong>não são exclusivos</strong>. Um cliente ativo e renovado aparece em Ativos e também em Renovados. Um renovado que depois cancelou aparece em Renovados e em Cancelados. Por isso a soma dos três primeiros não precisa bater com o Total.</p>
 
       <h3>Filtros e CSV</h3>
-      <p>Busca, EP, programa e classificação refinam o recorte. O botão <strong>Baixar CSV</strong> exporta exatamente o que está na tela (recorte + filtros + modelo), para Excel em português.</p>
+      <p>Busca, EP, programa e classificação refinam o recorte. O botão <strong>Baixar CSV</strong> exporta exatamente o que está na tela (recorte + filtros), para Excel em português. As colunas acompanham a tabela: reuniões, média/mês, nota E, mecanismos, nota M, Health Score e classificação. O botão <strong>Imprimir PDF</strong> abre este guia e o diálogo para salvar como PDF.</p>
     </section>
 
     <section class="section">
       <h2>3. Como o score é calculado</h2>
-      <p>Cada cliente recebe quatro notas (situações). Depois elas são ponderadas. O resultado final nunca passa de 100.</p>
+      <p>Cada cliente recebe duas notas. Depois elas entram com os pesos definidos no dashboard:</p>
+      <p><strong>Health Score = (E × peso de E) + (M × peso de M)</strong></p>
+      <p>Não há arredondamento extra nem teto além do que a própria fórmula já produz (o máximo é 100 quando E e M valem 100).</p>
 
+      <h3>Engajamento (E) — média de reuniões por mês</h3>
+      <p>A média usa o <strong>ciclo atual</strong> (<em>data_inicio_ciclo</em>): reuniões válidas divididas pelos meses de ciclo. Isso mede cadência, não carência de entrada.</p>
       <table>
         <thead>
-          <tr>
-            <th>Situação</th>
-            <th>O que mede</th>
-            <th>Completo</th>
-            <th>Simplificado</th>
-          </tr>
+          <tr><th>Média mensal</th><th>Nota E</th><th>Leitura</th></tr>
         </thead>
         <tbody>
-          <tr>
-            <td>S1 · Primeiros 45 dias</td>
-            <td>Quantas reuniões aconteceram no começo do ciclo</td>
-            <td>10%</td>
-            <td>não entra</td>
-          </tr>
-          <tr>
-            <td>S2 · Média por mês</td>
-            <td>Cadência de reuniões ao longo do tempo</td>
-            <td>30%</td>
-            <td>40%</td>
-          </tr>
-          <tr>
-            <td>S3 · Mecanismo no prazo</td>
-            <td>Se já existe pelo menos um mecanismo implantado, e com que atraso</td>
-            <td>10%</td>
-            <td>não entra</td>
-          </tr>
-          <tr>
-            <td>S4 · Quantidade de mecanismos</td>
-            <td>Quantos mecanismos foram implantados</td>
-            <td>50%</td>
-            <td>60%</td>
-          </tr>
+          <tr><td>1,00 ou mais</td><td>100</td><td>Saudável</td></tr>
+          <tr><td>0,25 a menos de 1,00</td><td>60</td><td>Atenção</td></tr>
+          <tr><td>Mais que 0 e menos de 0,25</td><td>20</td><td>Crítico</td></tr>
+          <tr><td>Zero</td><td>0</td><td>Crítico</td></tr>
         </tbody>
       </table>
 
-      <p><strong>Modelo Completo:</strong> Health Score = S1×0,1 + S2×0,3 + S3×0,1 + S4×0,5</p>
-      <p><strong>Modelo Simplificado:</strong> Health Score = S2×0,4 + S4×0,6</p>
-      <p>O Simplificado foi feito para olhar só o que mais pesa no dia a dia: cadência de reuniões e volume de mecanismos. O Completo acrescenta o “começo de jornada” (S1) e o “chegou a tempo?” (S3).</p>
+      <h3>Mecanismos (M) — quantidade implantada</h3>
+      <table>
+        <thead>
+          <tr><th>Mecanismos implantados</th><th>Nota M</th><th>Leitura</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>3 ou mais</td><td>100</td><td>Saudável</td></tr>
+          <tr><td>1 ou 2</td><td>60</td><td>Atenção</td></tr>
+          <tr><td>Nenhum</td><td>0</td><td>Crítico</td></tr>
+        </tbody>
+      </table>
     </section>
 
     <section class="section">
-      <h2>4. Os seis cartões do topo</h2>
-      <p>Eles respondem, em uma linha, “como está o recorte que estou vendo agora?”. A amostra do score exclui clientes sem nenhum registro (zero reuniões válidas e zero mecanismos implantados).</p>
-
-      <div class="kpi-grid">
-        <article class="kpi">
-          <p class="label">Clientes filtrados</p>
-          <p>Quantas pessoas do recorte têm pelo menos uma reunião ou um mecanismo. É o denominador dos gráficos e da média.</p>
-        </article>
-        <article class="kpi">
-          <p class="label">Score médio</p>
-          <p>Média aritmética do Health Score final desses clientes com dado. Não é uma nota da empresa: é a temperatura média da carteira escolhida.</p>
-        </article>
-        <article class="kpi">
-          <p class="label">Sem dados</p>
-          <p>Quantos do recorte atual foram descartados por falta de reunião e mecanismo. Não entram no score, nos gráficos nem no CSV.</p>
-        </article>
-      </div>
-
-      <p>Os três cartões seguintes partem a amostra com dado em faixas. A porcentagem é sempre sobre os clientes filtrados (com registro).</p>
+      <h2>4. Os cinco estados (nessa ordem)</h2>
+      <p>A classificação não olha só o número. A primeira condição que bater define o estado:</p>
+      <ol>
+        <li><strong>Em implantação</strong> — menos de 90 dias desde a <em>entrada</em> e M = 0. Cliente com ciclo maior que 1 <strong>nunca</strong> entra aqui (já passou da janela de onboarding).</li>
+        <li><strong>Sem registro</strong> — zero reuniões válidas e zero mecanismos. Deixa de ser “descartado”: vira um estado visível nos cartões, no gráfico e no CSV.</li>
+        <li><strong>Saudável</strong> — score 70 ou mais.</li>
+        <li><strong>Atenção</strong> — score 20 ou mais.</li>
+        <li><strong>Crítico</strong> — o restante.</li>
+      </ol>
+      <p>Os 90 dias de carência usam a <strong>data de entrada</strong> (<em>created_at</em>, com fallback em <em>data_inicio_ciclo</em>). Não misturar com o relógio do ciclo: ciclo mede cadência de reunião; entrada mede se o cliente ainda está implantando.</p>
 
       <div class="kpi-grid">
         <article class="kpi healthy">
-          <p class="label">Saudáveis</p>
-          <p class="range">75 a 100</p>
+          <p class="label">Saudável</p>
+          <p class="range">≥ 70</p>
           <p>Cliente engajado e com mecanismo rodando. Relação em ritmo.</p>
         </article>
         <article class="kpi attention">
           <p class="label">Atenção</p>
-          <p class="range">50 a 74</p>
+          <p class="range">≥ 20</p>
           <p>Algum sinal fraco. Vale monitorar, ainda não é alarme.</p>
         </article>
         <article class="kpi critical">
-          <p class="label">Críticos</p>
-          <p class="range">0 a 49</p>
+          <p class="label">Crítico</p>
+          <p class="range">abaixo de 20</p>
           <p>Alta probabilidade de churn. Prioridade de intervenção.</p>
+        </article>
+        <article class="kpi">
+          <p class="label">Em implantação</p>
+          <p class="range">&lt; 90 dias e M = 0</p>
+          <p>Janela natural. Não punir cliente novo sem mecanismo — salvo se já renovou.</p>
+        </article>
+        <article class="kpi">
+          <p class="label">Sem registro</p>
+          <p class="range">0 reunião e 0 mecanismo</p>
+          <p>Não há dado de relacionamento. Entra na amostra para aparecer, não some da carteira.</p>
         </article>
       </div>
     </section>
 
     <section class="section">
-      <h2>5. Gráfico Health Score</h2>
-      <p>É a mesma amostra dos cartões, desenhada em barras: quantos clientes caíram em Saudável, Atenção e Crítico.</p>
-      <p>Leitura prática: se a barra de Crítico cresce ao trocar de Recorte (por exemplo, de Ativos para Cancelados), o modelo está capturando carteira já deteriorada — o esperado. Se cresce dentro de <strong>Ativos</strong>, é sinal operacional: gente ainda na casa, com relacionamento fraco.</p>
+      <h2>5. Os cartões do topo</h2>
+      <p>Eles respondem, em uma linha, “como está o recorte que estou vendo agora?”. A amostra inclui todo mundo do recorte — inclusive Sem registro e Em implantação.</p>
+      <ul>
+        <li><strong>Clientes filtrados</strong> — denominador dos gráficos e da média.</li>
+        <li><strong>Score médio</strong> — temperatura média da carteira escolhida, não uma nota da empresa.</li>
+        <li><strong>Saudáveis, Atenção, Críticos, Em implantação, Sem registro</strong> — contagem e porcentagem de cada estado.</li>
+      </ul>
     </section>
 
     <section class="section">
-      <h2>6. Situação 1 · Reuniões nos primeiros 45 dias</h2>
-      <p>Pergunta: <strong>o onboarding aconteceu de verdade?</strong> Contamos reuniões válidas nos 45 dias após a data de entrada no ciclo.</p>
-      <table>
-        <thead>
-          <tr><th>O que aconteceu</th><th>Classificação</th><th>Nota S1</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>Ainda não completou 45 dias</td><td>Fase natural de acompanhamento</td><td>100</td></tr>
-          <tr><td>3 ou mais reuniões</td><td>Saudável</td><td>100</td></tr>
-          <tr><td>2 reuniões</td><td>Atenção</td><td>75</td></tr>
-          <tr><td>1 reunião</td><td>Crítico</td><td>50</td></tr>
-          <tr><td>Nenhuma reunião</td><td>Crítico</td><td>0</td></tr>
-        </tbody>
-      </table>
-      <p>A “fase natural” evita punir cliente novo. Ele entra com nota cheia até completar a janela — depois a conta vale de verdade.</p>
+      <h2>6. Gráfico Health Score</h2>
+      <p>É a mesma amostra dos cartões, em cinco barras. Leitura prática: se Crítico cresce ao ir de Ativos para Cancelados, o modelo está capturando carteira já deteriorada — o esperado. Se cresce dentro de <strong>Ativos</strong>, é sinal operacional: gente ainda na casa, com relacionamento fraco.</p>
+      <p>Sem registro alto em Ativos pede checagem de cadastro ou de operação (reunião não lançada, mecanismo não marcado), não necessariamente churn.</p>
     </section>
 
     <section class="section">
-      <h2>7. Situação 2 · Média de reuniões por mês</h2>
-      <p>Pergunta: <strong>o acompanhamento se sustentou depois do começo?</strong> Dividimos as reuniões válidas pelos meses de ciclo (mínimo 1 mês).</p>
-      <table>
-        <thead>
-          <tr><th>Média mensal</th><th>Classificação</th><th>Nota S2</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>1,00 ou mais</td><td>Saudável</td><td>100</td></tr>
-          <tr><td>0,75 a 0,99</td><td>Atenção</td><td>75</td></tr>
-          <tr><td>0,50 a 0,74</td><td>Crítico</td><td>50</td></tr>
-          <tr><td>0,25 a 0,49</td><td>Crítico</td><td>25</td></tr>
-          <tr><td>Abaixo de 0,25</td><td>Crítico</td><td>0</td></tr>
-        </tbody>
-      </table>
-      <p>Uma média de 1,0 significa, na prática, cerca de uma reunião por mês. Abaixo de 0,25 é quase ausência de contato.</p>
+      <h2>7. Gráficos Engajamento (E) e Mecanismos (M)</h2>
+      <p>Mostram como a carteira se espalha em Saudável, Atenção e Crítico em cada pilar. Em E, 100 é Saudável, 60 é Atenção e 20 ou 0 são Crítico. Em M, 100 é Saudável, 60 é Atenção e 0 é Crítico. São o “porquê” por trás do score.</p>
+      <p>Uma reunião só conta se for válida: aconteceu depois do início do ciclo, não está no futuro e não foi marcada como cancelada na presença. Reuniões manuais que duplicam um evento já lançado não são somadas duas vezes.</p>
+      <p>Mecanismo implantado é o que está concluído ou implementado — intenção ou rascunho não sobe a contagem.</p>
     </section>
 
     <section class="section">
-      <h2>8. Implementação de mecanismos por tempo</h2>
-      <p>No dashboard este gráfico é a Situação 3. Pergunta: <strong>o cliente já saiu do papel e ganhou pelo menos um mecanismo — e isso veio em prazo razoável?</strong></p>
-      <p>Se existe 1 mecanismo ou mais implantado, a nota é 100, independentemente do tempo. Se ainda não existe nenhum, o relógio do ciclo começa a cobrar:</p>
-      <table>
-        <thead>
-          <tr><th>Situação</th><th>Classificação</th><th>Nota S3</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>Já tem 1 ou mais mecanismos</td><td>Saudável</td><td>100</td></tr>
-          <tr><td>Menos de 90 dias e nenhum mecanismo</td><td>Fase natural de implantação</td><td>100</td></tr>
-          <tr><td>90 a 119 dias sem mecanismo</td><td>Atenção</td><td>75</td></tr>
-          <tr><td>120 a 179 dias sem mecanismo</td><td>Crítico</td><td>50</td></tr>
-          <tr><td>180 a 359 dias sem mecanismo</td><td>Crítico</td><td>25</td></tr>
-          <tr><td>360 dias ou mais sem mecanismo</td><td>Crítico</td><td>0</td></tr>
-        </tbody>
-      </table>
-      <p>Os primeiros 90 dias sem mecanismo não são tratados como falha: é a janela natural de implantação.</p>
-    </section>
-
-    <section class="section">
-      <h2>9. Quantidade de mecanismos</h2>
-      <p>Situação 4 — o gráfico de maior peso. Pergunta: <strong>quantos mecanismos de fato rodaram?</strong></p>
-      <table>
-        <thead>
-          <tr><th>Mecanismos implantados</th><th>Classificação</th><th>Nota S4</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>4 ou mais</td><td>Saudável (≥4)</td><td>200</td></tr>
-          <tr><td>3</td><td>Saudável (3)</td><td>175</td></tr>
-          <tr><td>2</td><td>Saudável (2)</td><td>125</td></tr>
-          <tr><td>1</td><td>Saudável (1)</td><td>100</td></tr>
-          <tr><td>0, e o ciclo tem menos de 90 dias</td><td>Fase natural de implantação</td><td>100</td></tr>
-          <tr><td>0, e o ciclo já passou de 90 dias</td><td>Crítico</td><td>0</td></tr>
-        </tbody>
-      </table>
-      <p>A nota da S4 pode passar de 100 de propósito: ter três ou quatro mecanismos “puxa” o Health Score para cima, porque este pilar vale 50% no Completo e 60% no Simplificado. Mesmo assim, o <strong>score final do cliente nunca passa de 100</strong>.</p>
-      <p>Exemplo: no Completo, um cliente com S4 = 200 já entrega 100 só neste pilar (200 × 0,5). O teto corta o excesso.</p>
-    </section>
-
-    <section class="section">
-      <h2>10. Os quatro recortes, com mais rigor</h2>
+      <h2>8. Os quatro recortes, com mais rigor</h2>
       <table>
         <thead>
           <tr><th>Recorte</th><th>Regra</th><th>Para que serve na conversa de gestão</th></tr>
@@ -447,7 +373,7 @@
           <tr>
             <td>Renovados</td>
             <td>Campo <em>ciclo</em> do cliente maior que 1</td>
-            <td>Quem já confiou de novo. Útil para ver se renovação veio com saúde ou só com inércia.</td>
+            <td>Quem já confiou de novo. Útil para ver se renovação veio com saúde ou só com inércia. Nunca cai em Em implantação.</td>
           </tr>
           <tr>
             <td>Cancelados</td>
@@ -464,24 +390,21 @@
     </section>
 
     <section class="section">
-      <h2>11. Tabela por cliente e o CSV</h2>
-      <p>A tabela (recolhida por padrão) e o arquivo CSV contam a mesma história, linha a linha. Colunas que mais importam na leitura executiva:</p>
+      <h2>9. Tabela por cliente e o CSV</h2>
+      <p>A tabela (recolhida por padrão) e o arquivo CSV contam a mesma história, linha a linha:</p>
       <ul>
-        <li><strong>Reuniões e média/mês</strong> — volume e cadência.</li>
-        <li><strong>Scores S1 e S2</strong> — qualidade do acompanhamento.</li>
-        <li><strong>Mecanismos e scores S3 e S4</strong> — entrega do trabalho.</li>
-        <li><strong>Health Score e classificação</strong> — a nota final já ponderada e limitada a 100.</li>
-        <li><strong>Ciclo / renovado / data de cancelamento</strong> — contexto de carteira, não de score.</li>
+        <li><strong>Reuniões e média/mês</strong> — volume e cadência no ciclo.</li>
+        <li><strong>E e M</strong> — as duas notas da fórmula.</li>
+        <li><strong>Health Score e classificação</strong> — o número e o estado (incluindo Em implantação e Sem registro).</li>
+        <li><strong>Ciclo / renovado / cancelamento</strong> — contexto de carteira, não de score.</li>
       </ul>
-      <p>Uma reunião só conta se for válida: aconteceu depois da entrada do cliente, não está no futuro e não foi marcada como cancelada na presença. Reuniões manuais que duplicam um evento já lançado não são somadas duas vezes.</p>
-      <p>Mecanismo implantado é o que está concluído ou implementado — intenção ou rascunho não sobe a contagem.</p>
     </section>
 
     <section class="section">
       <h2>Como usar isso numa reunião de gestão</h2>
       <ol>
-        <li>Comece em <strong>Ativos + Modelo Completo</strong>. Olhe score médio e a fatia de Críticos.</li>
-        <li>Se Críticos estiverem altos, abra o gráfico que mais “puxou”: S2 (cadência) ou S4 (mecanismos). Em geral é um dos dois.</li>
+        <li>Comece em <strong>Ativos</strong>. Olhe score médio e as fatias de Crítico, Sem registro e Em implantação.</li>
+        <li>Se Críticos estiverem altos, abra Engajamento (E) ou Mecanismos (M) para ver o que puxou.</li>
         <li>Compare com <strong>Renovados</strong>: renovação com score baixo é alerta de qualidade, não só de volume.</li>
         <li>Use <strong>Cancelados</strong> para ver o retrato de quem já saiu — não para gerir a carteira viva.</li>
         <li>Baixe o CSV do recorte se a conversa precisar ir ao cliente específico.</li>
@@ -489,9 +412,14 @@
     </section>
 
     <footer>
-      Fontes das regras: cálculo no servidor (situações S1–S4, pesos e teto 100), recortes Ativos / Renovados / Cancelados / Total, BASE QV (clients, reuniões, mecanismos e cancelamentos).<br />
+      Fontes das regras: cálculo no servidor (E e M com pesos editáveis, padrão 50/50, cinco estados), recortes Ativos / Renovados / Cancelados / Total, BASE QV (clients, reuniões, mecanismos e cancelamentos).<br />
       Documento gerado para apoio à leitura do dashboard experimental de Health Score. Não substitui a política comercial nem o critério do time de Customer Success.
     </footer>
   </main>
+  <script>
+    if (new URLSearchParams(location.search).has("print")) {
+      window.addEventListener("load", () => window.print());
+    }
+  </script>
 </body>
 </html>
