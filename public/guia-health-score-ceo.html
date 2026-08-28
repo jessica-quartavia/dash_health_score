@@ -234,6 +234,11 @@
       <p style="margin:0">Há um único modelo: Engajamento e Mecanismos, com 50%/50% como padrão. Os pesos podem ser editados no dashboard; o score sai da fórmula, sem teto extra e sem arredondamento.</p>
     </div>
 
+    <section class="section" id="currentSnapshot">
+      <h2>Comparativo da carteira por recorte</h2>
+      <p class="muted">Carregando a carteira completa em Ativos, Renovados, Cancelados e Total...</p>
+    </section>
+
     <section class="section">
       <h2>1. O que este dashboard responde</h2>
       <p>A pergunta central é: <strong>como está a saúde do relacionamento com cada cliente da carteira?</strong></p>
@@ -417,9 +422,97 @@
     </footer>
   </main>
   <script>
-    if (new URLSearchParams(location.search).has("print")) {
-      window.addEventListener("load", () => window.print());
-    }
+    const snapshot = document.getElementById("currentSnapshot");
+    const printOnLoad = new URLSearchParams(window.location.search).has("print");
+    const clusters = [
+      { id: "ativos", label: "Ativos" },
+      { id: "renovados", label: "Renovados" },
+      { id: "cancelados", label: "Cancelados" },
+      { id: "total", label: "Total" },
+    ];
+    const escapeHtml = (value) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;");
+    const percent = (value) => value == null ? "—" : `${Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+    const decimal = (value) => Number(value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    const correlation = (value) => value == null ? "Sem base suficiente" : Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+    const strength = (value) => {
+      const magnitude = Math.abs(Number(value));
+      if (magnitude < 0.1) return "muito fraca";
+      if (magnitude < 0.3) return "fraca";
+      if (magnitude < 0.5) return "moderada";
+      return "forte";
+    };
+    const direction = (value) => Number(value) > 0 ? "positiva" : Number(value) < 0 ? "negativa" : "nula";
+    const correlationReading = (row) => {
+      if (row.pearson == null || row.spearman == null) return `A base de ${row.sampleSize || 0} clientes não permite calcular uma correlação confiável para ${row.label.toLowerCase()}.`;
+      return `${row.label}: Pearson ${correlation(row.pearson)} e Spearman ${correlation(row.spearman)}, indicando associação ${strength(row.spearman)} e ${direction(row.spearman)}.`;
+    };
+    const recorteHtml = ({ label, payload, error }) => {
+      if (error) return `<section class="section"><h2>${escapeHtml(label)}</h2><p class="muted">Não foi possível carregar este recorte.</p></section>`;
+      const summary = payload.summary || {};
+      const healthDistribution = payload.healthDistribution || [];
+      const distributions = payload.distributions || {};
+      const nps = payload.nps || {};
+      const correlations = nps.correlations || [];
+      const engagement = correlations.find((item) => item.key === "engagementScore") || {};
+      const mechanism = correlations.find((item) => item.key === "mechanismScore") || {};
+      const distributionRows = (rows, labels) => labels.map((label) => rows.find((row) => row.label === label) || { label, count: 0, percent: 0 });
+      const healthRows = distributionRows(healthDistribution, ["Saudável", "Atenção", "Crítico", "Em implantação", "Sem registro"]);
+      const pillarRows = [
+        { label: "Engajamento", rows: distributionRows(distributions.engagement || [], ["Saudável", "Atenção", "Crítico"]) },
+        { label: "Mecanismos", rows: distributionRows(distributions.mechanism || [], ["Saudável", "Atenção", "Crítico"]) },
+      ];
+      const compared = engagement.spearman == null || mechanism.spearman == null
+        ? "Não há base suficiente para comparar os dois indicadores."
+        : Math.abs(engagement.spearman - mechanism.spearman) < 0.02
+          ? "Engajamento e Mecanismos apresentam associações de intensidade semelhante."
+          : `${Math.abs(mechanism.spearman) > Math.abs(engagement.spearman) ? "Mecanismos" : "Engajamento"} apresenta a associação mais forte com NPS neste recorte.`;
+      const renewalReading = (nps.renewalByClass || []).map((row) => `${row.label}: ${row.respondents} respondentes; ${row.renewed} renovaram; taxa de ${percent(row.renewalRate)}.`).join(" ");
+      return `<section class="section">
+        <h2>${escapeHtml(label)}</h2>
+        <h3>Panorama de Health Score</h3>
+        <table><tbody>
+          <tr><th>Clientes</th><td>${escapeHtml(summary.totalClients || 0)}</td><th>Score médio</th><td>${escapeHtml(decimal(summary.averageScore))}</td></tr>
+        </tbody></table>
+        <table><thead><tr><th>Classificação de Health Score</th><th>Clientes</th><th>Participação</th></tr></thead><tbody>
+          ${healthRows.map((row) => `<tr><td>${escapeHtml(row.label)}</td><td>${escapeHtml(row.count)}</td><td>${escapeHtml(percent(row.percent))}</td></tr>`).join("")}
+        </tbody></table>
+        <h3>Distribuição dos pilares</h3>
+        <table><thead><tr><th>Pilar</th><th>Saudável</th><th>Atenção</th><th>Crítico</th></tr></thead><tbody>
+          ${pillarRows.map((pillar) => `<tr><td>${escapeHtml(pillar.label)}</td>${pillar.rows.map((row) => `<td>${escapeHtml(row.count)} (${escapeHtml(percent(row.percent))})</td>`).join("")}</tr>`).join("")}
+        </tbody></table>
+        <p class="muted">A distribuição dos pilares mostra quais componentes explicam o Health Score deste recorte.</p>
+        <h3>Panorama de NPS</h3>
+        <table><tbody>
+          <tr><th>Respondentes NPS</th><td>${escapeHtml(nps.respondents || 0)}</td><th>Cobertura NPS</th><td>${escapeHtml(percent(nps.coveragePercent))}</td></tr>
+          <tr><th>Leitura da cobertura</th><td colspan="3">${escapeHtml(nps.respondents || 0)} de ${escapeHtml(nps.totalClients || 0)} clientes têm uma última resposta NPS válida. A leitura se limita a essa amostra.</td></tr>
+        </tbody></table>
+        <h3>Correlação NPS</h3>
+        <table><thead><tr><th>Par</th><th>Pearson</th><th>Spearman</th><th>Base pareada</th></tr></thead><tbody>
+          ${[engagement, mechanism].map((row) => `<tr><td>${escapeHtml(row.label || "—")}</td><td>${escapeHtml(correlation(row.pearson))}</td><td>${escapeHtml(correlation(row.spearman))}</td><td>${escapeHtml(row.sampleSize || 0)}</td></tr>`).join("")}
+        </tbody></table>
+        <p>${escapeHtml(correlationReading(engagement))} ${escapeHtml(correlationReading(mechanism))} ${escapeHtml(compared)}</p>
+        <h3>Renovação por NPS</h3>
+        <table><thead><tr><th>Classe NPS</th><th>Respondentes</th><th>Renovados</th><th>Taxa de renovação</th><th>Participação entre renovados</th></tr></thead><tbody>
+          ${(nps.renewalByClass || []).map((row) => `<tr><td>${escapeHtml(row.label)}</td><td>${escapeHtml(row.respondents)}</td><td>${escapeHtml(row.renewed)}</td><td>${escapeHtml(percent(row.renewalRate))}</td><td>${escapeHtml(percent(row.shareOfRenewed))}</td></tr>`).join("")}
+        </tbody></table>
+        <p>${escapeHtml(renewalReading)}</p>
+        <p class="muted">Os resultados descrevem associação, não causalidade ou previsão de renovação.</p>
+      </section>`;
+    };
+    Promise.all(clusters.map(async (cluster) => {
+      try {
+        const response = await fetch(`/api/health-score?cluster=${cluster.id}&ep=all&program=all&finalClass=all`);
+        if (!response.ok) throw new Error("Falha ao carregar recorte");
+        return { ...cluster, payload: await response.json() };
+      } catch (error) {
+        return { ...cluster, error };
+      }
+    }))
+      .then((results) => {
+        snapshot.innerHTML = `<h2>Comparativo da carteira por recorte</h2><p class="muted">Carteira completa, sem filtros ou pesos simulados do dashboard. Os recortes podem se sobrepor e não devem ser somados.</p>${results.map(recorteHtml).join("")}`;
+      })
+      .catch(() => { snapshot.innerHTML = "<h2>Comparativo da carteira por recorte</h2><p class=\"muted\">Não foi possível carregar os recortes da carteira.</p>"; })
+      .finally(() => { if (printOnLoad) window.print(); });
   </script>
 </body>
 </html>

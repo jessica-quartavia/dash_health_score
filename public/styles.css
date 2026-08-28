@@ -92,6 +92,16 @@ h1 {
   margin-bottom: 12px;
 }
 
+.view-tabs {
+  display: inline-flex;
+  gap: 8px;
+  padding: 4px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+}
+
 .cluster-picker {
   display: flex;
   flex-direction: column;
@@ -312,6 +322,34 @@ h1 {
   gap: 16px;
   margin-bottom: 24px;
 }
+
+.nps-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 220px));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.nps-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.correlation-values {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.correlation-values div { min-width: 0; }
+.correlation-values dt { color: var(--muted); font: 500 12px Ubuntu, sans-serif; }
+.correlation-values dd { margin: 6px 0 0; font: 700 18px Ubuntu, sans-serif; overflow-wrap: anywhere; }
+.nps-renewal-panel { margin-bottom: 16px; }
+.nps-table { min-width: 720px; }
+.nps-note { margin: 0; color: var(--muted); font-size: 13px; }
 
 .panel { padding: 20px 24px; }
 
@@ -561,6 +599,13 @@ td.num, th.num {
   .formula-card, .topbar { flex-direction: column; }
   .weight-controls { grid-template-columns: 1fr; }
   .topbar-meta { text-align: left; }
+  .nps-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .view-tabs { display: flex; width: 100%; }
+  .view-tabs .tab { flex: 1; padding-inline: 10px; }
+  .nps-kpi-grid, .correlation-values { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

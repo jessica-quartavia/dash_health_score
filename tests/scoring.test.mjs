@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import {
   classifyByScore,
   classifyHealth,
@@ -13,6 +14,16 @@ import { aggregateHealthScore, buildClientHealthRow, buildHealthScorePayload, DI
 import { filterHealthClients } from "../lib/filters.mjs";
 import { CSV_HEADERS, belongsToCluster, rowsToCsv } from "../lib/clusters.mjs";
 import { WEIGHTS } from "../lib/scoring.mjs";
+import { buildNpsAnalysis, classifyNpsScore, latestNpsByClient, pearsonCorrelation, spearmanCorrelation } from "../lib/nps.mjs";
+
+test("PDF comparativo inclui Health Score e distribuição dos pilares", async () => {
+  const guide = await readFile(new URL("../public/guia-health-score-ceo.html", import.meta.url), "utf8");
+  assert.ok(guide.includes("Panorama de Health Score"));
+  assert.ok(guide.includes("Classificação de Health Score"));
+  assert.ok(guide.includes("Distribuição dos pilares"));
+  assert.ok(guide.includes("Carteira completa, sem filtros ou pesos simulados do dashboard"));
+  assert.ok(guide.includes("cluster=${cluster.id}&ep=all&program=all&finalClass=all"));
+});
 
 test("engajamento: limites da média mensal", () => {
   assert.equal(scoreEngagement(1), 100);
@@ -61,6 +72,43 @@ test("todas as combinações de score E/M sem arredondamento extra", () => {
       assert.equal(computeHealthScore(e, m), expected[`${e}-${m}`]);
     }
   }
+});
+
+test("NPS usa a última resposta válida e classifica as três faixas", () => {
+  const latest = latestNpsByClient([
+    { id: "1", client_id: "a", score: 4, submitted_at: "2024-01-01" },
+    { id: "2", client_id: "a", score: 9, submitted_at: "2024-02-01" },
+    { id: "3", client_id: "b", score: 7, created_at: "2024-03-01" },
+    { id: "4", client_id: "c", score: 12, submitted_at: "2024-03-01" },
+  ]);
+  assert.equal(latest.get("a").score, 9);
+  assert.equal(latest.get("a").npsClass, "promoter");
+  assert.equal(latest.get("b").npsClass, "passive");
+  assert.equal(latest.has("c"), false);
+  assert.equal(classifyNpsScore(6), "detractor");
+  assert.equal(classifyNpsScore(8), "passive");
+});
+
+test("correlações NPS usam Pearson e Spearman e exigem base variada", () => {
+  const pairs = [[1, 1], [2, 2], [3, 3]];
+  assert.equal(pearsonCorrelation(pairs), 1);
+  assert.equal(spearmanCorrelation(pairs), 1);
+  assert.equal(pearsonCorrelation([[1, 1], [2, 2]]), null);
+  assert.equal(spearmanCorrelation([[1, 10], [1, 20], [1, 30]]), null);
+});
+
+test("análise NPS agrega renovação por classe", () => {
+  const analysis = buildNpsAnalysis([
+    { npsScore: 4, npsClass: "detractor", hasRenewed: false, engagementScore: 0, mechanismScore: 0 },
+    { npsScore: 7, npsClass: "passive", hasRenewed: true, engagementScore: 60, mechanismScore: 60 },
+    { npsScore: 9, npsClass: "promoter", hasRenewed: true, engagementScore: 100, mechanismScore: 100 },
+    { npsScore: null, npsClass: null, hasRenewed: true, engagementScore: 100, mechanismScore: 100 },
+  ]);
+  assert.equal(analysis.respondents, 3);
+  assert.equal(analysis.coveragePercent, 75);
+  assert.deepEqual(analysis.renewalByClass.map((row) => row.renewed), [0, 1, 1]);
+  assert.equal(analysis.renewalByClass[1].renewalRate, 100);
+  assert.equal(analysis.correlations[0].sampleSize, 3);
 });
 
 test("pesos customizados recalculam o score final", () => {

@@ -33,6 +33,12 @@ const el = {
   engagementWeightInput: document.getElementById("engagementWeightInput"),
   mechanismWeightRange: document.getElementById("mechanismWeightRange"),
   mechanismWeightInput: document.getElementById("mechanismWeightInput"),
+  healthView: document.getElementById("healthView"),
+  npsView: document.getElementById("npsView"),
+  npsKpis: document.getElementById("npsKpis"),
+  npsEngagementCorrelation: document.getElementById("npsEngagementCorrelation"),
+  npsMechanismCorrelation: document.getElementById("npsMechanismCorrelation"),
+  npsRenewalBody: document.getElementById("npsRenewalBody"),
 };
 
 const fmt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
@@ -246,6 +252,36 @@ function renderTable(clients) {
     .join("");
 }
 
+function formatCorrelation(value) {
+  return value == null ? "Sem base suficiente" : value.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+}
+
+function renderCorrelation(container, correlation) {
+  if (!correlation) {
+    container.innerHTML = `<p class="muted">Sem dados de NPS no recorte.</p>`;
+    return;
+  }
+  container.innerHTML = `
+    <dl class="correlation-values">
+      <div><dt>Pearson</dt><dd>${escapeHtml(formatCorrelation(correlation.pearson))}</dd></div>
+      <div><dt>Spearman</dt><dd>${escapeHtml(formatCorrelation(correlation.spearman))}</dd></div>
+      <div><dt>Base pareada</dt><dd>${escapeHtml(fmt.format(correlation.sampleSize || 0))} clientes</dd></div>
+    </dl>`;
+}
+
+function renderNps(payload) {
+  const nps = payload.nps || {};
+  el.npsKpis.innerHTML = [
+    { label: "Cobertura NPS", value: `${pctFmt.format(nps.coveragePercent || 0)}%`, hint: `${fmt.format(nps.respondents || 0)} de ${fmt.format(nps.totalClients || 0)} clientes` },
+    { label: "Respondentes NPS", value: fmt.format(nps.respondents || 0), hint: "Última resposta válida por cliente" },
+  ].map((card) => `<article class="kpi"><p class="label">${escapeHtml(card.label)}</p><p class="value">${escapeHtml(card.value)}</p><p class="hint">${escapeHtml(card.hint)}</p></article>`).join("");
+  const correlations = nps.correlations || [];
+  renderCorrelation(el.npsEngagementCorrelation, correlations.find((item) => item.key === "engagementScore"));
+  renderCorrelation(el.npsMechanismCorrelation, correlations.find((item) => item.key === "mechanismScore"));
+  el.npsRenewalBody.innerHTML = (nps.renewalByClass || []).map((row) => `
+    <tr><td>${escapeHtml(row.label)}</td><td class="num">${fmt.format(row.respondents || 0)}</td><td class="num">${fmt.format(row.renewed || 0)}</td><td class="num">${row.renewalRate == null ? "—" : `${pctFmt.format(row.renewalRate)}%`}</td><td class="num">${row.shareOfRenewed == null ? "—" : `${pctFmt.format(row.shareOfRenewed)}%`}</td></tr>`).join("");
+}
+
 function renderPayload(payload) {
   state.payload = payload;
   el.formulaTitle.textContent = "Health Score";
@@ -255,6 +291,7 @@ function renderPayload(payload) {
   renderBars(el.engagementBars, payload.distributions?.engagement);
   renderBars(el.mechanismBars, payload.distributions?.mechanism);
   renderTable(payload.clients || []);
+  renderNps(payload);
 
   const options = payload.filters?.options || {};
   const applied = payload.filters?.applied || {};
@@ -366,6 +403,15 @@ document.getElementById("btnCsv").addEventListener("click", () => {
 
 document.getElementById("btnPdf").addEventListener("click", () => {
   window.open("/guia-health-score-ceo.html?print=1", "_blank", "noopener");
+});
+
+document.querySelectorAll("[data-view]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const npsActive = button.dataset.view === "nps";
+    document.querySelectorAll("[data-view]").forEach((node) => node.classList.toggle("active", node === button));
+    el.healthView.classList.toggle("hidden", npsActive);
+    el.npsView.classList.toggle("hidden", !npsActive);
+  });
 });
 
 el.btnToggleTable.addEventListener("click", () => {

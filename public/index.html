@@ -20,6 +20,11 @@
       <div class="topbar-meta" id="metaLine">Carregando…</div>
     </header>
 
+    <nav class="view-tabs" aria-label="Visões do dashboard">
+      <button type="button" class="tab active" data-view="health">Health Score</button>
+      <button type="button" class="tab" data-view="nps">NPS e Correlações</button>
+    </nav>
+
     <label class="cluster-picker">
       <span>Recorte</span>
       <select id="fCluster"></select>
@@ -71,6 +76,7 @@
       </div>
     </section>
 
+    <section id="healthView">
     <section class="kpi-grid" id="kpiGrid" aria-live="polite"></section>
 
     <section class="dist-grid">
@@ -163,9 +169,39 @@
         </table>
       </div>
     </section>
+    </section>
+
+    <section id="npsView" class="nps-view hidden" aria-live="polite">
+      <section class="nps-kpi-grid" id="npsKpis"></section>
+      <section class="nps-grid">
+        <article class="panel">
+          <div class="panel-head"><h3>NPS x Engajamento</h3></div>
+          <div id="npsEngagementCorrelation"></div>
+        </article>
+        <article class="panel">
+          <div class="panel-head"><h3>NPS x Mecanismos</h3></div>
+          <div id="npsMechanismCorrelation"></div>
+        </article>
+      </section>
+      <section class="panel nps-renewal-panel">
+        <div class="panel-head">
+          <div>
+            <h3>Renovação por NPS</h3>
+            <p class="muted">Clientes com última resposta NPS válida no recorte atual.</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="nps-table">
+            <thead><tr><th>Classe NPS</th><th class="num">Respondentes</th><th class="num">Renovados</th><th class="num">Taxa de renovação</th><th class="num">Participação entre renovados</th></tr></thead>
+            <tbody id="npsRenewalBody"></tbody>
+          </table>
+        </div>
+      </section>
+      <p class="nps-note">Os resultados mostram associação no recorte atual; não representam causalidade ou previsão de renovação.</p>
+    </section>
 
     <footer class="footer">
-      Fontes: clients · client_meetings · manual_meetings · meeting_attendance · client_mecanismos · mecanismos · cancellations
+      Fontes: clients · client_meetings · manual_meetings · meeting_attendance · client_mecanismos · mecanismos · cancellations · nps_responses
     </footer>
   </div>
 
