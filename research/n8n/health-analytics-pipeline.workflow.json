@@ -1,0 +1,143 @@
+{
+  "name": "Health Analytics — Pipeline (desativado)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Execução manual",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-200, 160]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "months",
+              "monthsInterval": 1,
+              "triggerAtDayOfMonth": 1,
+              "triggerAtHour": 6,
+              "triggerAtMinute": 0
+            }
+          ]
+        },
+        "timezone": "America/Bahia"
+      },
+      "id": "schedule-monthly",
+      "name": "Schedule mensal (OFF)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-200, 0],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "if (!$env.MONITORING_PIPELINE_URL) {\n  throw new Error('Defina MONITORING_PIPELINE_URL (URL pública do backend, não localhost)');\n}\nreturn [{ json: { url: $env.MONITORING_PIPELINE_URL.replace(/\\/$/, '') } }];"
+      },
+      "id": "validate-config",
+      "name": "Validar configuração",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [40, 80]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}/api/monitoring/pipeline/run",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-N8N-Execution-Id", "value": "={{ $execution.id }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"persistBusinessData\": true }",
+        "options": { "timeout": 600000, "response": { "response": { "fullResponse": false } } }
+      },
+      "id": "run-pipeline",
+      "name": "Acionar pipeline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [280, 80],
+      "notes": "Credencial n8n: Header Auth name Authorization value Bearer <token> — não versionar token no JSON."
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst body = raw.body ?? raw;\nif (!body.ok) {\n  throw new Error(body.error || 'Pipeline retornou ok=false');\n}\nconst bd = body.businessData || {};\nif (bd.ok === false && !bd.idempotent) {\n  throw new Error(bd.error || bd.reason || 'Persistência Business Data falhou');\n}\nreturn [{\n  json: {\n    ok: true,\n    idempotent: Boolean(body.idempotent || bd.idempotent),\n    clientCount: body.clientCount,\n    snapshotRows: bd.snapshotRows,\n    runId: bd.runId,\n    durationMs: body.durationMs,\n  }\n}];"
+      },
+      "id": "interpret-response",
+      "name": "Interpretar resposta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 80]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "ok-check",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-success",
+      "name": "Sucesso?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [720, 80]
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ $json.message || 'Falha no pipeline Health Analytics' }}"
+      },
+      "id": "stop-error",
+      "name": "Falha pipeline",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [940, 200]
+    }
+  ],
+  "connections": {
+    "Execução manual": {
+      "main": [[{ "node": "Validar configuração", "type": "main", "index": 0 }]]
+    },
+    "Schedule mensal (OFF)": {
+      "main": [[{ "node": "Validar configuração", "type": "main", "index": 0 }]]
+    },
+    "Validar configuração": {
+      "main": [[{ "node": "Acionar pipeline", "type": "main", "index": 0 }]]
+    },
+    "Acionar pipeline": {
+      "main": [[{ "node": "Interpretar resposta", "type": "main", "index": 0 }]]
+    },
+    "Interpretar resposta": {
+      "main": [[{ "node": "Sucesso?", "type": "main", "index": 0 }]]
+    },
+    "Sucesso?": {
+      "main": [
+        [],
+        [{ "node": "Falha pipeline", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bahia",
+    "availableInMCP": true
+  },
+  "meta": {
+    "description": "Etapa 13: orquestra POST no backend Node. HS calculado no servidor. Schedule inativo até MONITORING_PIPELINE_URL pública validada.",
+    "n8nInstanceId": "0gRJGp39YOXrXEZY"
+  }
+}

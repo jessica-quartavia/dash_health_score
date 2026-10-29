@@ -7,6 +7,28 @@
   "scripts": {
     "dev": "node scripts/dev-server.mjs",
     "start": "node scripts/dev-server.mjs",
-    "test": "node --test tests/**/*.test.mjs"
+    "test": "node --test tests/**/*.test.mjs",
+    "export:predictive": "node scripts/export-predictive.mjs",
+    "build:predictive-validated": "node scripts/build-predictive-validated.mjs",
+    "model:audit": "python research/modeling/run_audit.py",
+    "model:experiments": "python research/modeling/run_experiments.py",
+    "model:all": "npm run model:audit && npm run model:experiments",
+    "model:robustness": "python research/modeling/run_robustness.py",
+    "model:etapa6": "python research/modeling/run_etapa6.py",
+    "model:etapa7": "python research/modeling/run_etapa7.py",
+    "test:robustness": "python -m unittest research/modeling/tests/test_robustness.py",
+    "test:etapa6": "python -m unittest research/modeling/tests/test_etapa6.py",
+    "test:etapa7": "python -m unittest research/modeling/tests/test_etapa7.py",
+    "report:etapa8": "node scripts/generate-etapa8-coverage.mjs",
+    "report:etapa9": "node scripts/run-etapa9.mjs",
+    "monitoring:snapshot": "node scripts/run-monitoring-pipeline.mjs",
+    "monitoring:pipeline": "node scripts/run-monitoring-pipeline.mjs",
+    "monitoring:check-env": "node scripts/run-monitoring-pipeline.mjs --check-env",
+    "monitoring:audit": "node scripts/audit-monitoring-env.mjs",
+    "monitoring:recovery-test": "node scripts/test-monitoring-recovery.mjs",
+    "monitoring:persist-test": "node scripts/run-monitoring-pipeline.mjs --persist-business-data",
+    "monitoring:check-bd": "node scripts/check-business-data-env.mjs",
+    "monitoring:ensure-secrets": "node scripts/ensure-monitoring-secrets.mjs",
+    "monitoring:test-trigger": "node scripts/test-pipeline-trigger.mjs"
   }
 }

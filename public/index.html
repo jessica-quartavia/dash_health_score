@@ -3,209 +3,100 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Health Score · Clientes</title>
+  <title>Health Analytics · Clientes</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Carme&family=Ubuntu:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
 </head>
 <body>
-  <div class="app">
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">Dashboard experimental</p>
-        <h1>Health Score de Clientes</h1>
-        <p class="subtitle">Engajamento e mecanismos · cálculo no servidor · base Ativos por padrão</p>
+  <div class="shell" id="shell">
+    <div class="backdrop" id="backdrop" hidden></div>
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <span class="mark" aria-hidden="true">HA</span>
+        <span class="brand-copy">
+          <strong>Health Analytics</strong>
+          <small>Inteligência de Clientes</small>
+        </span>
       </div>
-      <div class="topbar-meta" id="metaLine">Carregando…</div>
-    </header>
+      <nav class="nav" aria-label="Seções">
+        <p class="nav-group">Executivo</p>
+        <button type="button" class="nav-btn active" data-view="overview"><span class="nav-icon" data-icon="grid"></span><span class="nav-label">Visão Geral</span></button>
+        <button type="button" class="nav-btn" data-view="health"><span class="nav-icon" data-icon="pulse"></span><span class="nav-label">Health Score</span></button>
+        <button type="button" class="nav-btn" data-view="quality"><span class="nav-icon" data-icon="shield"></span><span class="nav-label">Qualidade e Monitoramento</span></button>
+        <p class="nav-group">Relacionamento</p>
+        <button type="button" class="nav-btn" data-view="engagement"><span class="nav-icon" data-icon="users"></span><span class="nav-label">Engajamento</span></button>
+        <button type="button" class="nav-btn" data-view="mechanisms"><span class="nav-icon" data-icon="layers"></span><span class="nav-label">Mecanismos</span></button>
+        <button type="button" class="nav-btn" data-view="nps"><span class="nav-icon" data-icon="relate"></span><span class="nav-label">NPS e Correlações</span></button>
+        <p class="nav-group">Dados &amp; pesquisa</p>
+        <button type="button" class="nav-btn" data-view="base"><span class="nav-icon" data-icon="table"></span><span class="nav-label">Base Analítica</span></button>
+        <button type="button" class="nav-btn" data-view="research"><span class="nav-icon" data-icon="study"></span><span class="nav-label">Pesquisa Preditiva</span></button>
+      </nav>
+      <button type="button" class="collapse-btn" id="btnCollapse" aria-expanded="true">Recolher menu</button>
+    </aside>
 
-    <nav class="view-tabs" aria-label="Visões do dashboard">
-      <button type="button" class="tab active" data-view="health">Health Score</button>
-      <button type="button" class="tab" data-view="nps">NPS e Correlações</button>
-    </nav>
+    <div class="workspace">
+      <header class="topbar">
+        <button type="button" class="icon-btn menu-btn" id="btnNav" aria-label="Abrir menu">☰</button>
+        <div class="title-block">
+          <p class="eyebrow" id="viewEyebrow">Painel executivo</p>
+          <h1 id="viewTitle">Visão Geral</h1>
+        </div>
+        <div class="top-actions">
+          <p class="meta" id="metaLine">Carregando…</p>
+          <button type="button" class="btn ghost" id="btnGuide">Guia</button>
+          <button type="button" class="btn ghost" id="btnCsv">Exportar CSV</button>
+          <button type="button" class="btn" id="btnRefresh">Atualizar</button>
+        </div>
+      </header>
 
-    <label class="cluster-picker">
-      <span>Recorte</span>
-      <select id="fCluster"></select>
-    </label>
+      <div id="scoreSlot" hidden></div>
 
-    <section class="formula-card" id="formulaCard">
-      <div>
-        <h2 id="formulaTitle">Health Score</h2>
-        <p class="formula" id="formulaText">Health Score = (E × 0,5) + (M × 0,5)</p>
-        <p class="weights" id="weightsText">Pesos: Engajamento (E) = 50% · Mecanismos (M) = 50%</p>
-      </div>
-      <div class="weight-controls" aria-label="Pesos do Health Score">
-        <label>
-          <span>Engajamento</span>
-          <input type="range" id="engagementWeightRange" min="0" max="100" step="5" value="50" />
-          <input type="number" id="engagementWeightInput" min="0" max="100" step="5" value="50" />
+      <section class="filters" aria-label="Filtros globais">
+        <p class="filters-label">Filtros do recorte</p>
+        <label class="field grow">
+          <span>Busca</span>
+          <input type="search" id="fSearch" placeholder="Nome, código ou ID" />
         </label>
-        <label>
-          <span>Mecanismos</span>
-          <input type="range" id="mechanismWeightRange" min="0" max="100" step="5" value="50" />
-          <input type="number" id="mechanismWeightInput" min="0" max="100" step="5" value="50" />
+        <div class="field period-field">
+          <span>Período (entrada do cliente)</span>
+          <div id="periodRoot"></div>
+          <input type="hidden" id="fFrom" />
+          <input type="hidden" id="fTo" />
+        </div>
+        <label class="field">
+          <span>Programa</span>
+          <select id="fProgram"></select>
         </label>
-      </div>
-      <p class="disclaimer">Score experimental para teste de métricas — não é score oficial definitivo de churn.</p>
-    </section>
-
-    <section class="filters" id="filters">
-      <label>
-        <span>Busca</span>
-        <input type="search" id="fSearch" placeholder="Nome, código ou ID" />
-      </label>
-      <label>
-        <span>EP</span>
-        <select id="fEp"></select>
-      </label>
-      <label>
-        <span>Programa</span>
-        <select id="fProgram"></select>
-      </label>
-      <label>
-        <span>Classificação</span>
-        <select id="fFinal"></select>
-      </label>
-      <div class="filter-actions">
-        <button type="button" class="btn secondary" id="btnReset">Limpar filtros</button>
-        <button type="button" class="btn secondary" id="btnCsv">Baixar CSV</button>
-        <button type="button" class="btn secondary" id="btnPdf">Imprimir PDF</button>
-        <button type="button" class="btn" id="btnRefresh">Atualizar</button>
-      </div>
-    </section>
-
-    <section id="healthView">
-    <section class="kpi-grid" id="kpiGrid" aria-live="polite"></section>
-
-    <section class="dist-grid">
-      <article class="panel featured">
-        <div class="panel-head">
-          <h3>Health Score</h3>
-          <div class="tip">
-            <button type="button" class="tip-btn" aria-label="Regras do Health Score">i</button>
-            <div class="tip-panel" role="tooltip">
-              <h4>Classificação (primeira que bater)</h4>
-              <ul>
-                <li>Em implantação: menos de 90 dias desde a entrada e M = 0 (ciclo &gt; 1 nunca entra)</li>
-                <li>Sem registro: 0 reuniões e 0 mecanismos</li>
-                <li>Saudável: score ≥ 70</li>
-                <li>Atenção: score ≥ 20</li>
-                <li>Crítico: demais</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-        <div id="healthBars" class="bars"></div>
-      </article>
-      <article class="panel">
-        <div class="panel-head">
-          <h3>Engajamento (E)</h3>
-          <div class="tip">
-            <button type="button" class="tip-btn" aria-label="Regras de Engajamento">i</button>
-            <div class="tip-panel" role="tooltip">
-              <h4>Média de reuniões por mês</h4>
-              <ul>
-                <li>≥ 1,00 → Saudável (100)</li>
-                <li>0,25 a &lt; 1,00 → Atenção (60)</li>
-                <li>&gt; 0 e &lt; 0,25 → Crítico (20)</li>
-                <li>= 0 → Crítico (0)</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-        <div id="engagementBars" class="bars"></div>
-      </article>
-      <article class="panel">
-        <div class="panel-head">
-          <h3>Mecanismos (M)</h3>
-          <div class="tip">
-            <button type="button" class="tip-btn" aria-label="Regras de Mecanismos">i</button>
-            <div class="tip-panel" role="tooltip">
-              <h4>Quantidade implantada</h4>
-              <ul>
-                <li>≥ 3 → Saudável (100)</li>
-                <li>1 ou 2 → Atenção (60)</li>
-                <li>0 → Crítico (0)</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-        <div id="mechanismBars" class="bars"></div>
-      </article>
-    </section>
-
-    <section class="panel table-panel">
-      <div class="table-head">
-        <div>
-          <h3>Detalhes por cliente</h3>
-          <p class="muted" id="tableCount">—</p>
-        </div>
-        <button type="button" class="btn secondary" id="btnToggleTable">Mostrar detalhes</button>
-      </div>
-      <div id="tableWrap" class="table-wrap hidden">
-        <table id="clientsTable">
-          <thead>
-            <tr>
-              <th>Cliente</th>
-              <th>Código</th>
-              <th>EP</th>
-              <th>Status</th>
-              <th>Programa</th>
-              <th class="num">Ciclo</th>
-              <th>Renovado</th>
-              <th>Cancelamento</th>
-              <th class="num">Reuniões</th>
-              <th class="num">Média/mês</th>
-              <th class="num">E</th>
-              <th class="num">Mecanismos</th>
-              <th class="num">M</th>
-              <th class="num">Health Score</th>
-              <th>Classificação</th>
-            </tr>
-          </thead>
-          <tbody id="clientsBody"></tbody>
-        </table>
-      </div>
-    </section>
-    </section>
-
-    <section id="npsView" class="nps-view hidden" aria-live="polite">
-      <section class="nps-kpi-grid" id="npsKpis"></section>
-      <section class="nps-grid">
-        <article class="panel">
-          <div class="panel-head"><h3>NPS x Engajamento</h3></div>
-          <div id="npsEngagementCorrelation"></div>
-        </article>
-        <article class="panel">
-          <div class="panel-head"><h3>NPS x Mecanismos</h3></div>
-          <div id="npsMechanismCorrelation"></div>
-        </article>
+        <label class="field">
+          <span>Engenheiro Patrimonial</span>
+          <select id="fEp"></select>
+        </label>
+        <label class="field">
+          <span>Classificação</span>
+          <select id="fFinal"></select>
+        </label>
+        <label class="field">
+          <span>Status do cliente</span>
+          <select id="fCluster"></select>
+        </label>
+        <label class="switch">
+          <input type="checkbox" id="fPin" checked />
+          <span>Fixar filtros</span>
+        </label>
+        <button type="button" class="btn ghost" id="btnReset">Limpar</button>
       </section>
-      <section class="panel nps-renewal-panel">
-        <div class="panel-head">
-          <div>
-            <h3>Renovação por NPS</h3>
-            <p class="muted">Clientes com última resposta NPS válida no recorte atual.</p>
-          </div>
-        </div>
-        <div class="table-wrap">
-          <table class="nps-table">
-            <thead><tr><th>Classe NPS</th><th class="num">Respondentes</th><th class="num">Renovados</th><th class="num">Taxa de renovação</th><th class="num">Participação entre renovados</th></tr></thead>
-            <tbody id="npsRenewalBody"></tbody>
-          </table>
-        </div>
-      </section>
-      <p class="nps-note">Os resultados mostram associação no recorte atual; não representam causalidade ou previsão de renovação.</p>
-    </section>
+      <p class="filter-note" id="filterNote">O período filtra clientes pela data de entrada. Os scores de cada cliente continuam calculados com o histórico completo. O recorte inicial é de clientes ativos.</p>
 
-    <footer class="footer">
-      Fontes: clients · client_meetings · manual_meetings · meeting_attendance · client_mecanismos · mecanismos · cancellations · nps_responses
-    </footer>
+      <div id="errorBanner" class="error hidden" role="alert"></div>
+      <main id="view" aria-live="polite"></main>
+    </div>
   </div>
-
-  <div id="errorBanner" class="error-banner hidden" role="alert"></div>
+  <dialog id="detailDialog"></dialog>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
   <script type="module" src="/app.js"></script>
 </body>
 </html>

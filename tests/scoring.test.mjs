@@ -497,3 +497,19 @@ test("zerados permanecem na amostra como Sem registro", () => {
   assert.equal(payload.summary.noRecord, 1);
   assert.equal(payload.summary.discardedForMissingData, undefined);
 });
+
+test("período filtra pela data de entrada e não altera o recorte sem datas", () => {
+  const row = (id, entryDate) => ({
+    clientId: id,
+    clientName: id,
+    clientCode: id,
+    engineer: "A",
+    analyticalStatus: "Ativo",
+    program: "Pharus",
+    finalClass: "Saudável",
+    entryDate,
+  });
+  const rows = [row("1", "2024-01-15T00:00:00.000Z"), row("2", "2024-06-01T00:00:00.000Z"), row("3", null)];
+  assert.equal(filterHealthClients(rows, { cluster: "ativos", from: "2024-05-01", to: "2024-12-31" }).length, 1);
+  assert.equal(filterHealthClients(rows, { cluster: "ativos" }).length, 3);
+});

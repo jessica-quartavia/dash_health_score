@@ -14,9 +14,16 @@ Não faz parte do `dash-simplificado`: tem frontend e backend próprios, em dire
 ```bash
 cp .env.example .env
 # preencha DATA_SUPABASE_* com os valores locais da Jornada
+# o arquivo precisa se chamar .env, na mesma pasta do package.json
 
 npm start
 # ou: node scripts/dev-server.mjs
+```
+
+O servidor carrega `.env` e `.env.local` com `process.loadEnvFile` antes de consultar a BASE QV. Variáveis já definidas no ambiente não são substituídas. A inicialização informa se cada variável está presente ou ausente, sem imprimir os valores.
+
+```bash
+npm run export:predictive
 ```
 
 Abra `http://localhost:3010`.

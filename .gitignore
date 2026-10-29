@@ -5,3 +5,13 @@ node_modules/
 *.log
 .cache/
 dist/
+exports/
+research/modeling/output/*
+!research/modeling/output/.gitkeep
+research/monitoring/snapshots/*.json
+research/monitoring/.pseudonym-secret
+research/monitoring/output/*
+!research/monitoring/output/.gitkeep
+research/monitoring/prospective/*.json
+research/monitoring/runs/run-log.json
+research/monitoring/meta/*.json

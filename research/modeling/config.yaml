@@ -1,0 +1,20 @@
+horizon_days: 90
+seed: 42
+data_dir: ../../exports/predictive-study
+output_dir: output
+target_col: desfecho_churn_90d
+label_eligible_col: elegivel_modelagem_90d
+censor_col: censura_90d
+reference_col: mes_referencia
+reference_date_col: data_referencia
+client_col: cliente_ref
+purge_horizon_days: 90
+temporal:
+  train_frac: 0.55
+  val_frac: 0.20
+  # test = remainder
+bootstrap_clients: 200
+logistic:
+  C: 1.0
+  max_iter: 2000
+sensitivity_exclude_date_conflicts: true

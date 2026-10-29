@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "snapshots": [
+    {
+      "file": "2026-10-29_ativos_d22c041fb570_8294008f4ba59535.json",
+      "referenceDay": "2026-10-29",
+      "population": "ativos",
+      "formulaVersion": "hs-v1-50-50-operacional",
+      "hs2aVersion": "hs2a-etapa8-v1",
+      "versionFingerprint": "d22c041fb570",
+      "rowCount": 1578,
+      "integrity": "d605bf1b786e529adb57767ca15ea7d2b5f8d80117b59b5129dc3bbe916ddc3f",
+      "writtenAt": "2026-10-29T16:07:21.008Z"
+    },
+    {
+      "file": "2099-04-01_ativos_d22c041fb570_44136fa355b3678a.json",
+      "referenceDay": "2099-04-01",
+      "population": "ativos",
+      "formulaVersion": "hs-v1-50-50-operacional",
+      "hs2aVersion": "hs2a-etapa8-v1",
+      "versionFingerprint": "d22c041fb570",
+      "rowCount": 0,
+      "integrity": "0439905199f039f679676fa50dbbf2ec253e5f831b37ac047881cece016e85a2",
+      "writtenAt": "2026-10-23T20:57:09.552Z"
+    },
+    {
+      "file": "2026-10-23_ativos_d22c041fb570_8294008f4ba59535.json",
+      "referenceDay": "2026-10-23",
+      "population": "ativos",
+      "formulaVersion": "hs-v1-50-50-operacional",
+      "hs2aVersion": "hs2a-etapa8-v1",
+      "versionFingerprint": "d22c041fb570",
+      "rowCount": 1586,
+      "integrity": "e2a30c7f293f14019bf3b2ef10e6ccde75a11ef88f8e7558ad063c5a312897ce",
+      "writtenAt": "2026-10-23T20:54:32.392Z"
+    },
+    {
+      "file": "2099-03-10_ativos_d22c041fb570_44136fa355b3678a.json",
+      "referenceDay": "2099-03-10",
+      "population": "ativos",
+      "formulaVersion": "hs-v1-50-50-operacional",
+      "hs2aVersion": "hs2a-etapa8-v1",
+      "versionFingerprint": "d22c041fb570",
+      "rowCount": 0,
+      "integrity": "1fe4ad58e0e23b8964d45ccf6cbe83cc58aea21c5e6b6c159be32c6275308126",
+      "writtenAt": "2026-10-23T20:54:25.502Z"
+    },
+    {
+      "file": "2026-10-23_ativos_8294008f4ba59535.json",
+      "referenceDay": "2026-10-23",
+      "population": "ativos",
+      "formulaVersion": "hs-v1-50-50-operacional",
+      "hs2aVersion": "hs2a-etapa8-v1",
+      "rowCount": 1586,
+      "writtenAt": "2026-10-23T20:45:26.004Z"
+    }
+  ]
+}
