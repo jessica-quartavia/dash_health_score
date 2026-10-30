@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
+import { execSync } from "node:child_process";
 import test from "node:test";
 import { renderResearchLabHow } from "../public/research-lab-how.mjs";
 import { renderResearchLabModel } from "../public/research-lab-model.mjs";
@@ -48,7 +50,12 @@ test("Laboratório — filtro descritivo removido da visão executiva", () => {
 });
 
 test("Laboratório — relatório usa métricas versionadas do lab pack", async () => {
-  const { buildPredictiveExecutiveReportHtml } = await import("../lib/frontend/predictive-report-html.mjs");
+  if (!existsSync(join(ROOT, "dist", "index.html"))) {
+    execSync("node scripts/vercel-build.mjs", { cwd: ROOT, stdio: "pipe" });
+  }
+  const { buildPredictiveExecutiveReportHtml } = await import(
+    new URL("../dist/lib/frontend/predictive-report-html.mjs", import.meta.url).href,
+  );
   const labPack = buildPredictiveLabReference(ROOT);
   const panorama = {
     kpis: { horizonDays: 90, referenceModelId: "E", evaluationPeriod: "test" },

@@ -28,13 +28,16 @@ function send(res, status, body, headers = {}) {
   res.end(body);
 }
 
+/** Espelha Vercel: assets de public/ na raiz da URL; /public/* não é rota válida. */
 function safeFilePath(urlPath) {
   const decoded = decodeURIComponent(urlPath.split("?")[0]);
-  const relative = decoded === "/" ? "/public/index.html" : decoded.startsWith("/public/")
-    ? decoded
-    : `/public${decoded}`;
-  const resolved = resolve(ROOT, `.${normalize(relative)}`);
-  if (!resolved.startsWith(ROOT)) return null;
+  if (decoded === "/") return join(ROOT, "public", "index.html");
+  if (decoded.startsWith("/public/") || decoded === "/public") return null;
+  if (decoded.startsWith("/lib/")) return null;
+  const rel = decoded.replace(/^\//, "");
+  const resolved = resolve(ROOT, "public", normalize(rel));
+  const publicRoot = join(ROOT, "public");
+  if (!resolved.startsWith(publicRoot)) return null;
   return resolved;
 }
 

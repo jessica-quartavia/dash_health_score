@@ -10,6 +10,7 @@ const MJS_MODULES = [
   "session-auth.mjs",
   "app.js",
   "lib/frontend/health-score-contract.mjs",
+  "lib/frontend/analytical-csv.mjs",
 ];
 
 async function get(path) {
@@ -27,6 +28,19 @@ test("Produção — módulos .mjs/.js não retornam HTML (MIME correto)", async
     assert.doesNotMatch(body.trimStart(), /^<!DOCTYPE/i, `${file} body is HTML`);
     assert.doesNotMatch(body.trimStart(), /^<html/i, `${file} body is HTML`);
   }
+});
+
+test("Produção — analytical-csv importa /analytical-columns.mjs (não /public/)", async () => {
+  const { status, body } = await get("/lib/frontend/analytical-csv.mjs");
+  assert.equal(status, 200);
+  assert.doesNotMatch(body, /\.\.\/\.\.\/public\//, "import ../../public/ quebra na Vercel");
+  assert.match(body, /\.\.\/\.\.\/analytical-columns\.mjs/);
+});
+
+test("Produção — /public/* não é rota de asset (404)", async () => {
+  const { status, body } = await get("/public/analytical-columns.mjs");
+  assert.equal(status, 404, "frontend must use /analytical-columns.mjs");
+  assert.doesNotMatch(body.trimStart(), /^<!DOCTYPE/i);
 });
 
 test("Produção — asset .mjs inexistente retorna 404, não index.html", async () => {

@@ -1,13 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildPredictiveExecutiveReportHtml, wrapReportDocument } from "../lib/frontend/executive-report-core.mjs";
+import { execSync } from "node:child_process";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
+async function loadExecutiveReportCore() {
+  if (!existsSync(join(ROOT, "dist", "index.html"))) {
+    execSync("node scripts/vercel-build.mjs", { cwd: ROOT, stdio: "pipe" });
+  }
+  return import(new URL("../dist/lib/frontend/executive-report-core.mjs", import.meta.url).href);
+}
+
 test("relatório preditivo inclui seções executivas obrigatórias", async () => {
+  const { buildPredictiveExecutiveReportHtml, wrapReportDocument } = await loadExecutiveReportCore();
   const panorama = {
     generatedAt: "2026-01-15T12:00:00.000Z",
     kpis: {
@@ -60,7 +68,8 @@ test("relatório preditivo inclui seções executivas obrigatórias", async () =
   assert.match(doc, /Salvar como PDF/i);
 });
 
-test("relatório preditivo falha claro sem KPIs", () => {
+test("relatório preditivo falha claro sem KPIs", async () => {
+  const { buildPredictiveExecutiveReportHtml } = await loadExecutiveReportCore();
   const built = buildPredictiveExecutiveReportHtml(null, {});
   assert.equal(built.ok, false);
   assert.ok(built.error);
