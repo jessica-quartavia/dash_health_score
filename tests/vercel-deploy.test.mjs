@@ -13,13 +13,18 @@ test("Vercel — vercel.json aponta build Node estático", () => {
   assert.equal(cfg.outputDirectory, "dist");
   assert.equal(cfg.installCommand, undefined);
   const fn = cfg.functions?.["api/[...path].js"];
-  const includes = fn?.includeFiles;
-  assert.ok(Array.isArray(includes) ? includes.includes("lib/**") : String(includes).includes("lib"));
-  assert.ok(
-    Array.isArray(includes)
-      ? includes.some((g) => g.includes("research/modeling/output"))
-      : String(includes).includes("research/modeling/output"),
-  );
+  assert.equal(typeof fn?.includeFiles, "string");
+  assert.match(fn.includeFiles, /lib/);
+  assert.match(fn.includeFiles, /research\/modeling\/output/);
+  assert.equal(Array.isArray(fn.includeFiles), false);
+});
+
+test("Vercel — vercel.json é JSON válido e includeFiles não é array (schema Vercel)", () => {
+  const raw = readFileSync(join(ROOT, "vercel.json"), "utf8");
+  const cfg = JSON.parse(raw);
+  const inc = cfg.functions?.["api/[...path].js"]?.includeFiles;
+  assert.notEqual(inc, null);
+  assert.strictEqual(typeof inc, "string");
 });
 
 test("Vercel — sem requirements.txt na raiz (detecção Python)", () => {
