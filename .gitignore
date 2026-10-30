@@ -30,3 +30,4 @@ research/monitoring/output/*
 research/monitoring/prospective/*.json
 research/monitoring/runs/run-log.json
 research/monitoring/meta/*.json
+.vercel
