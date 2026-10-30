@@ -1,0 +1,47 @@
+{
+  "version": "etapa6-v1",
+  "generatedAt": "2026-10-23T20:24:10.546027+00:00",
+  "preserves": [
+    "robustness_results.json",
+    "modeling_results_etapa4.json"
+  ],
+  "files": [
+    "hs_profiles_analysis.json",
+    "hs_data_quality.json",
+    "early_churn_audit.json",
+    "hs_sensitivity_results.json",
+    "HS_2_0_SPEC.md",
+    "RELATORIO_ETAPA6.md"
+  ],
+  "success_criteria": {
+    "markdown_bullets": "1. HS baixo mistura **comportamento desfavorável** e **limitação de observação** (sem reunião/M=0/implantação).\n2. Implantação: churn elevado combina **saída precoce real**, **scores baixos por construção** e possível **migração created_at 2026**.\n3. Cancelamentos já solicitados: ~0.1% dos positivos com solicitação formal antes da ref.\n4. E histórico é mais confiável que M quando `cobertura_mecanismos=completa` e reconstrução integral.\n5. HS 2.0 deve priorizar **engajamento observável**, **estado informacional** e **M com trilha temporal**; NPS só após cobertura.\n6. Faltam: val confirmatório, calibração, política de publicação e monitoramento antes de probabilidades individuais.",
+    "text_block": "1. HS baixo mistura **comportamento desfavorável** e **limitação de observação** (sem reunião/M=0/implantação).\n\n2. Implantação: churn elevado combina **saída precoce real**, **scores baixos por construção** e possível **migração created_at 2026**.\n\n3. Cancelamentos já solicitados: ~0.1% dos positivos com solicitação formal antes da ref.\n\n4. E histórico é mais confiável que M quando `cobertura_mecanismos=completa` e reconstrução integral.\n\n5. HS 2.0 deve priorizar **engajamento observável**, **estado informacional** e **M com trilha temporal**; NPS só após cobertura.\n\n6. Faltam: val confirmatório, calibração, política de publicação e monitoramento antes de probabilidades individuais."
+  },
+  "highlights": {
+    "solicitacao_antes_ref_obs": 6,
+    "positivos_com_solicitacao_previa_share": 0.0012970168612191958,
+    "implantacao_churn_rate": 0.41555064360941363,
+    "timing_buckets": [
+      {
+        "faixa_dias_pos_ref": "0-30",
+        "eventos": 1251,
+        "share_positivos": 0.3245136186770428
+      },
+      {
+        "faixa_dias_pos_ref": "31-60",
+        "eventos": 1283,
+        "share_positivos": 0.33281452658884564
+      },
+      {
+        "faixa_dias_pos_ref": "61-90",
+        "eventos": 1321,
+        "share_positivos": 0.34267185473411155
+      },
+      {
+        "faixa_dias_pos_ref": "91+",
+        "eventos": 0,
+        "share_positivos": 0.0
+      }
+    ]
+  }
+}

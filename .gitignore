@@ -4,10 +4,24 @@ node_modules/
 .DS_Store
 *.log
 .cache/
-dist/
+# Build estático (Vercel recria a cada deploy; não commitar artefatos)
+/dist/*
+!/dist/.gitkeep
 exports/
 research/modeling/output/*
 !research/modeling/output/.gitkeep
+# Artefatos versionados necessários ao Laboratório Preditivo em produção (sem dados de clientes)
+!research/modeling/output/modeling_results.json
+!research/modeling/output/modeling_results_etapa4.json
+!research/modeling/output/predictive_study_v15.json
+!research/modeling/output/predictive_study_v16.json
+!research/modeling/output/predictive_study_v17.json
+!research/modeling/output/predictive_study_v2.json
+!research/modeling/output/pre_audit.json
+!research/modeling/output/etapa6_manifest.json
+!research/modeling/output/etapa7_manifest.json
+!research/modeling/output/hs2_comparison.json
+!research/modeling/output/robustness_results.json
 research/monitoring/snapshots/*.json
 research/monitoring/.pseudonym-secret
 research/monitoring/output/*

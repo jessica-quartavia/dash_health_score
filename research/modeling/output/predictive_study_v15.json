@@ -1,0 +1,892 @@
+{
+  "version": "predictive-study-v15",
+  "status": "ok",
+  "generatedAt": "2026-10-30T02:49:57.017529+00:00",
+  "environment": {
+    "python": "3.13.14 (tags/v3.13.14:fd17997, Jun 10 2026, 13:03:48) [MSC v.1944 64 bit (AMD64)]",
+    "sklearn": "1.9.1",
+    "seed": 42
+  },
+  "manifest": {
+    "study_version": "predictive-study-v15",
+    "state": "diagnostic_exploratory",
+    "processed_at": "2026-10-30T02:49:57.012890+00:00",
+    "dataset_hash_sha256_16": "79099ee143a9881e",
+    "depends_on": [
+      "predictive_study_v2.json (opcional)",
+      "modeling_results_etapa4.json"
+    ],
+    "approval": "none"
+  },
+  "fair_comparison": {
+    "protocol": {
+      "same_labeled_frame": true,
+      "same_temporal_split": true,
+      "split_note": "Split alinhado à Etapa 4: treino purgado meses ['2026-02'], teste ['2026-06']. Excluídos 7780 registros por purga 90d.",
+      "train_months": [
+        "2026-02"
+      ],
+      "test_months": [
+        "2026-06"
+      ],
+      "C_fixed": 1.0,
+      "no_hyperparam_tuning_on_test": true,
+      "test_not_confirmatory": "jun/2026 já utilizado na Etapa 4 e V2"
+    },
+    "model_E_refit": {
+      "roc_auc": 0.7032744282744281,
+      "pr_auc": 0.25081352445581845,
+      "brier": 0.16341392337842872,
+      "log_loss": 0.5297771584738568,
+      "precision": 0.2549476135040745,
+      "recall": 0.6738461538461539,
+      "f1": 0.36993243243243246,
+      "threshold": 0.5,
+      "prevalence": 0.1546882436934793,
+      "n": 2101,
+      "positives": 325,
+      "confusion": {
+        "tn": 1136,
+        "fp": 640,
+        "fn": 106,
+        "tp": 219
+      },
+      "bootstrap_roc_auc": {
+        "mean": 0.70282106373136,
+        "ci_low": 0.6856308901154738,
+        "ci_high": 0.7243733086379301,
+        "n": 200
+      },
+      "model_id": "E_fair_refit"
+    },
+    "model_V2_logistic_refit": {
+      "roc_auc": 0.7061434511434512,
+      "pr_auc": 0.24869755643796318,
+      "brier": 0.14614000077082753,
+      "log_loss": 0.5369614069319655,
+      "precision": 0.18584070796460178,
+      "recall": 0.06461538461538462,
+      "f1": 0.0958904109589041,
+      "threshold": 0.5,
+      "prevalence": 0.1546882436934793,
+      "n": 2101,
+      "positives": 325,
+      "confusion": {
+        "tn": 1684,
+        "fp": 92,
+        "fn": 304,
+        "tp": 21
+      },
+      "bootstrap_roc_auc": {
+        "mean": 0.7065933190630136,
+        "ci_low": 0.684789042791616,
+        "ci_high": 0.7304904921648482,
+        "n": 200
+      },
+      "model_id": "v2_logistic_fair"
+    },
+    "model_E_frozen_etapa4_test": {
+      "roc_auc": 0.6943118270266869,
+      "pr_auc": 0.22537601425298948,
+      "brier": 0.1620342990622979,
+      "log_loss": 0.5290757198336277,
+      "precision": 0.2284325637910085,
+      "recall": 0.6550522648083623,
+      "f1": 0.3387387387387387,
+      "threshold": 0.5,
+      "prevalence": 0.1393880524526469,
+      "n": 2059,
+      "positives": 287,
+      "confusion": {
+        "tn": 1137,
+        "fp": 635,
+        "fn": 99,
+        "tp": 188
+      },
+      "lift": {
+        "top_5pct_capture": 0.08362369337979095,
+        "top_5pct_rate": 0.23529411764705882,
+        "top_5pct_lift": 1.688050830088133,
+        "top_10pct_capture": 0.1672473867595819,
+        "top_10pct_rate": 0.23414634146341465,
+        "top_10pct_lift": 1.6798164357950203,
+        "top_20pct_capture": 0.33797909407665505,
+        "top_20pct_rate": 0.2360097323600973,
+        "top_20pct_lift": 1.6931848046321964
+      },
+      "calibration": [
+        {
+          "bin_lo": 0.0,
+          "bin_hi": 0.1,
+          "pred_mean": 0.01364636179250185,
+          "observed": 0.04580152671755725,
+          "n": 917
+        },
+        {
+          "bin_lo": 0.1,
+          "bin_hi": 0.2,
+          "pred_mean": 0.14263157892502804,
+          "observed": 0.1917808219178082,
+          "n": 73
+        },
+        {
+          "bin_lo": 0.2,
+          "bin_hi": 0.30000000000000004,
+          "pred_mean": 0.21732820675237868,
+          "observed": 0.13829787234042554,
+          "n": 188
+        },
+        {
+          "bin_lo": 0.30000000000000004,
+          "bin_hi": 0.4,
+          "pred_mean": 0.3453911466001096,
+          "observed": 0.23684210526315788,
+          "n": 38
+        },
+        {
+          "bin_lo": 0.4,
+          "bin_hi": 0.5,
+          "pred_mean": 0.4458330181382316,
+          "observed": 0.4,
+          "n": 20
+        },
+        {
+          "bin_lo": 0.5,
+          "bin_hi": 0.6000000000000001,
+          "pred_mean": 0.5701621008558306,
+          "observed": 0.22824716267339218,
+          "n": 793
+        },
+        {
+          "bin_lo": 0.6000000000000001,
+          "bin_hi": 0.7000000000000001,
+          "pred_mean": 0.649503638925996,
+          "observed": 0.3333333333333333,
+          "n": 9
+        },
+        {
+          "bin_lo": 0.7000000000000001,
+          "bin_hi": 0.8,
+          "pred_mean": 0.7645987058554605,
+          "observed": 0.09090909090909091,
+          "n": 11
+        },
+        {
+          "bin_lo": 0.8,
+          "bin_hi": 0.9,
+          "pred_mean": 0.8240997229277077,
+          "observed": 0.14285714285714285,
+          "n": 7
+        },
+        {
+          "bin_lo": 0.9,
+          "bin_hi": 1.0,
+          "pred_mean": 0.9535466360896884,
+          "observed": 0.6666666666666666,
+          "n": 3
+        }
+      ],
+      "curves": {
+        "roc": [
+          {
+            "fpr": 0.0,
+            "tpr": 0.0
+          },
+          {
+            "fpr": 0.004514672686230248,
+            "tpr": 0.013937282229965157
+          },
+          {
+            "fpr": 0.011851015801354402,
+            "tpr": 0.020905923344947737
+          },
+          {
+            "fpr": 0.35835214446952596,
+            "tpr": 0.6585365853658537
+          },
+          {
+            "fpr": 0.36173814898419865,
+            "tpr": 0.6724738675958188
+          },
+          {
+            "fpr": 0.36681715575620766,
+            "tpr": 0.6933797909407665
+          },
+          {
+            "fpr": 0.3718961625282167,
+            "tpr": 0.7038327526132404
+          },
+          {
+            "fpr": 0.38261851015801357,
+            "tpr": 0.7142857142857143
+          },
+          {
+            "fpr": 0.38826185101580135,
+            "tpr": 0.7282229965156795
+          },
+          {
+            "fpr": 0.3961625282167043,
+            "tpr": 0.7491289198606271
+          },
+          {
+            "fpr": 0.47121896162528215,
+            "tpr": 0.8013937282229965
+          },
+          {
+            "fpr": 0.4791196388261851,
+            "tpr": 0.8153310104529616
+          },
+          {
+            "fpr": 0.4847629796839729,
+            "tpr": 0.8257839721254355
+          },
+          {
+            "fpr": 0.4932279909706546,
+            "tpr": 0.8362369337979094
+          },
+          {
+            "fpr": 0.5016930022573364,
+            "tpr": 0.8501742160278746
+          },
+          {
+            "fpr": 0.5067720090293454,
+            "tpr": 0.8536585365853658
+          },
+          {
+            "fpr": 0.5174943566591422,
+            "tpr": 0.8641114982578397
+          },
+          {
+            "fpr": 0.5276523702031602,
+            "tpr": 0.8745644599303136
+          },
+          {
+            "fpr": 0.5349887133182845,
+            "tpr": 0.8815331010452961
+          },
+          {
+            "fpr": 0.5423250564334086,
+            "tpr": 0.8885017421602788
+          },
+          {
+            "fpr": 0.5536117381489842,
+            "tpr": 0.8954703832752613
+          },
+          {
+            "fpr": 0.5660270880361173,
+            "tpr": 0.9024390243902439
+          },
+          {
+            "fpr": 0.5880361173814899,
+            "tpr": 0.9059233449477352
+          },
+          {
+            "fpr": 0.6044018058690744,
+            "tpr": 0.9094076655052264
+          },
+          {
+            "fpr": 0.6693002257336343,
+            "tpr": 0.9163763066202091
+          },
+          {
+            "fpr": 0.6851015801354402,
+            "tpr": 0.9233449477351916
+          },
+          {
+            "fpr": 0.7071106094808126,
+            "tpr": 0.926829268292683
+          },
+          {
+            "fpr": 0.7432279909706546,
+            "tpr": 0.9337979094076655
+          },
+          {
+            "fpr": 0.7731376975169301,
+            "tpr": 0.9372822299651568
+          },
+          {
+            "fpr": 0.7832957110609481,
+            "tpr": 0.9407665505226481
+          },
+          {
+            "fpr": 0.7968397291196389,
+            "tpr": 0.9407665505226481
+          },
+          {
+            "fpr": 0.8053047404063205,
+            "tpr": 0.9512195121951219
+          },
+          {
+            "fpr": 0.8143340857787811,
+            "tpr": 0.9616724738675958
+          },
+          {
+            "fpr": 0.858352144469526,
+            "tpr": 0.9616724738675958
+          },
+          {
+            "fpr": 0.8848758465011287,
+            "tpr": 0.9721254355400697
+          },
+          {
+            "fpr": 0.9255079006772009,
+            "tpr": 0.9790940766550522
+          },
+          {
+            "fpr": 0.9356659142212189,
+            "tpr": 0.9895470383275261
+          },
+          {
+            "fpr": 0.9582392776523702,
+            "tpr": 0.9895470383275261
+          },
+          {
+            "fpr": 0.9655756207674944,
+            "tpr": 0.9965156794425087
+          },
+          {
+            "fpr": 0.9853273137697517,
+            "tpr": 1.0
+          },
+          {
+            "fpr": 1.0,
+            "tpr": 1.0
+          }
+        ],
+        "pr": [
+          {
+            "recall": 1.0,
+            "precision": 0.1393880524526469
+          },
+          {
+            "recall": 1.0,
+            "precision": 0.140893470790378
+          },
+          {
+            "recall": 0.9965156794425087,
+            "precision": 0.14235938277750124
+          },
+          {
+            "recall": 0.9895470383275261,
+            "precision": 0.1432896064581231
+          },
+          {
+            "recall": 0.9895470383275261,
+            "precision": 0.14534288638689866
+          },
+          {
+            "recall": 0.9790940766550522,
+            "precision": 0.14552045572242361
+          },
+          {
+            "recall": 0.9790940766550522,
+            "precision": 0.14719748559455212
+          },
+          {
+            "recall": 0.9721254355400697,
+            "precision": 0.1480891719745223
+          },
+          {
+            "recall": 0.9721254355400697,
+            "precision": 0.14967811158798283
+          },
+          {
+            "recall": 0.9721254355400697,
+            "precision": 0.15196078431372548
+          },
+          {
+            "recall": 0.9686411149825784,
+            "precision": 0.15308370044052863
+          },
+          {
+            "recall": 0.9616724738675958,
+            "precision": 0.15367483296213807
+          },
+          {
+            "recall": 0.9616724738675958,
+            "precision": 0.15798511734401832
+          },
+          {
+            "recall": 0.9616724738675958,
+            "precision": 0.15981470758540822
+          },
+          {
+            "recall": 0.9512195121951219,
+            "precision": 0.16068275456150677
+          },
+          {
+            "recall": 0.9407665505226481,
+            "precision": 0.1623571858087793
+          },
+          {
+            "recall": 0.9372822299651568,
+            "precision": 0.16422466422466422
+          },
+          {
+            "recall": 0.9337979094076655,
+            "precision": 0.16573902288188003
+          },
+          {
+            "recall": 0.9303135888501742,
+            "precision": 0.17348927875243664
+          },
+          {
+            "recall": 0.926829268292683,
+            "precision": 0.17557755775577558
+          },
+          {
+            "recall": 0.926829268292683,
+            "precision": 0.1781647689216343
+          },
+          {
+            "recall": 0.9198606271777003,
+            "precision": 0.17983651226158037
+          },
+          {
+            "recall": 0.9163763066202091,
+            "precision": 0.18225918225918225
+          },
+          {
+            "recall": 0.9094076655052264,
+            "precision": 0.1975775927327782
+          },
+          {
+            "recall": 0.9024390243902439,
+            "precision": 0.20046439628482973
+          },
+          {
+            "recall": 0.9024390243902439,
+            "precision": 0.20361635220125787
+          },
+          {
+            "recall": 0.8954703832752613,
+            "precision": 0.20576461168935148
+          },
+          {
+            "recall": 0.89198606271777,
+            "precision": 0.20880913539967375
+          },
+          {
+            "recall": 0.8815331010452961,
+            "precision": 0.21048252911813645
+          },
+          {
+            "recall": 0.8745644599303136,
+            "precision": 0.21271186440677967
+          },
+          {
+            "recall": 0.8536585365853658,
+            "precision": 0.21138912855910266
+          },
+          {
+            "recall": 0.8501742160278746,
+            "precision": 0.2147887323943662
+          },
+          {
+            "recall": 0.8362369337979094,
+            "precision": 0.21543985637342908
+          },
+          {
+            "recall": 0.818815331010453,
+            "precision": 0.21559633027522937
+          },
+          {
+            "recall": 0.8013937282229965,
+            "precision": 0.2155576382380506
+          },
+          {
+            "recall": 0.7456445993031359,
+            "precision": 0.23516483516483516
+          },
+          {
+            "recall": 0.7177700348432056,
+            "precision": 0.2325056433408578
+          },
+          {
+            "recall": 0.7038327526132404,
+            "precision": 0.23352601156069364
+          },
+          {
+            "recall": 0.686411149825784,
+            "precision": 0.2334123222748815
+          },
+          {
+            "recall": 0.6515679442508711,
+            "precision": 0.22749391727493917
+          },
+          {
+            "recall": 0.013937282229965157,
+            "precision": 0.2222222222222222
+          }
+        ]
+      },
+      "bootstrap_roc_auc": {
+        "mean": 0.6941320690073388,
+        "ci_low": 0.6724582621536264,
+        "ci_high": 0.7163659213224304,
+        "n": 200
+      },
+      "split": "test",
+      "model_id": "E",
+      "metrics_at_val_threshold": {
+        "roc_auc": 0.6943118270266869,
+        "pr_auc": 0.22537601425298948,
+        "brier": 0.1620342990622979,
+        "log_loss": 0.5290757198336277,
+        "precision": 0.2284325637910085,
+        "recall": 0.6550522648083623,
+        "f1": 0.3387387387387387,
+        "threshold": 0.5,
+        "prevalence": 0.1393880524526469,
+        "n": 2059,
+        "positives": 287,
+        "confusion": {
+          "tn": 1137,
+          "fp": 635,
+          "fn": 99,
+          "tp": 188
+        }
+      }
+    },
+    "paired_v2_minus_E_auc": {
+      "diff_mean": 0.0032069059410916637,
+      "ci_low": -0.016324747286330554,
+      "ci_high": 0.021390745167116088,
+      "n": 300
+    },
+    "model_E_plus_phase_var": {
+      "roc_auc": 0.6490765765765766,
+      "pr_auc": 0.22133239781672343,
+      "brier": 0.15395270703922617,
+      "log_loss": 0.6106468534347237,
+      "precision": 0.1188118811881188,
+      "recall": 0.036923076923076927,
+      "f1": 0.056338028169014086,
+      "threshold": 0.5,
+      "prevalence": 0.1546882436934793,
+      "n": 2101,
+      "positives": 325,
+      "confusion": {
+        "tn": 1687,
+        "fp": 89,
+        "fn": 313,
+        "tp": 12
+      },
+      "bootstrap_roc_auc": {
+        "mean": 0.6487956198927958,
+        "ci_low": 0.6305889913231704,
+        "ci_high": 0.670603549402041,
+        "n": 200
+      },
+      "model_id": "E_plus_phase"
+    },
+    "phase_submodels": {
+      "implantacao_only": {
+        "roc_auc": 0.5339464882943143,
+        "pr_auc": 0.09023584084638914,
+        "brier": 0.14675380485370074,
+        "log_loss": 0.6951284703269636,
+        "precision": 0.0898876404494382,
+        "recall": 0.34782608695652173,
+        "f1": 0.14285714285714285,
+        "threshold": 0.5,
+        "prevalence": 0.0812720848056537,
+        "n": 283,
+        "positives": 23,
+        "confusion": {
+          "tn": 179,
+          "fp": 81,
+          "fn": 15,
+          "tp": 8
+        },
+        "bootstrap_roc_auc": {
+          "mean": 0.536455379882387,
+          "ci_low": 0.44370972456473967,
+          "ci_high": 0.6150067918733758,
+          "n": 200
+        },
+        "model_id": "E_implantacao_subset"
+      }
+    },
+    "exploratory_holdout": {
+      "holdout_month": "2026-05",
+      "purpose": "exploratory_only",
+      "roc_auc": 0.7158934408167762,
+      "pr_auc": 0.2765359278067117,
+      "n": 2125,
+      "prevalence": 0.17552941176470588
+    }
+  },
+  "segment_audit": [
+    {
+      "segment": "implantacao",
+      "n_obs": 7938,
+      "n_clients": 2793,
+      "churn_rate": 0.4056437389770723,
+      "ci_low": 0.39313947603863886,
+      "ci_high": 0.41739789951189166,
+      "insufficient": false
+    },
+    {
+      "segment": "pos_implantacao",
+      "n_obs": 6671,
+      "n_clients": 2009,
+      "churn_rate": 0.13566181981711886,
+      "ci_low": 0.1269494194427561,
+      "ci_high": 0.14530732574105484,
+      "insufficient": false
+    },
+    {
+      "segment": "sem_reunioes",
+      "n_obs": 11212,
+      "n_clients": 3084,
+      "churn_rate": 0.3368712094184802,
+      "ci_low": 0.32602734994606786,
+      "ci_high": 0.3489354542949475,
+      "insufficient": false
+    },
+    {
+      "segment": "sem_vinculo_mec",
+      "n_obs": 9849,
+      "n_clients": 2357,
+      "churn_rate": 0.40359427353030763,
+      "ci_low": 0.38940122854076215,
+      "ci_high": 0.4172691008990955,
+      "insufficient": false
+    },
+    {
+      "segment": "historico_integral",
+      "n_obs": 14609,
+      "n_clients": 3254,
+      "churn_rate": 0.2823601889246355,
+      "ci_low": 0.2732451335542747,
+      "ci_high": 0.2914729249337912,
+      "insufficient": false
+    },
+    {
+      "segment": "historico_parcial_ou_pior",
+      "n_obs": 0,
+      "n_clients": 0,
+      "churn_rate": null,
+      "ci_low": null,
+      "ci_high": null,
+      "insufficient": true
+    },
+    {
+      "segment": "hs_0_20",
+      "n_obs": 10584,
+      "n_clients": 2824,
+      "churn_rate": 0.374244142101285,
+      "ci_low": 0.3608838208827684,
+      "ci_high": 0.3865985995941033,
+      "insufficient": false
+    },
+    {
+      "segment": "hs_20_plus",
+      "n_obs": 4025,
+      "n_clients": 1105,
+      "churn_rate": 0.04074534161490683,
+      "ci_low": 0.03396520675835603,
+      "ci_high": 0.04758312609376439,
+      "insufficient": false
+    }
+  ],
+  "hs_churn_by_phase": [
+    {
+      "phase": "Em implantação",
+      "hs_band": "0-20",
+      "n_obs": 7031,
+      "churn_rate": 0.4500071113639596,
+      "ci_low": 0.4365202306860666,
+      "ci_high": 0.4617449139137006
+    },
+    {
+      "phase": "Em implantação",
+      "hs_band": "20-40",
+      "n_obs": 310,
+      "churn_rate": 0.06451612903225806,
+      "ci_low": 0.04028934010152284,
+      "ci_high": 0.08673469387755102
+    },
+    {
+      "phase": "Em implantação",
+      "hs_band": "40-60",
+      "n_obs": 597,
+      "churn_rate": 0.06030150753768844,
+      "ci_low": 0.04108172315489389,
+      "ci_high": 0.07823209040469974
+    },
+    {
+      "phase": "Saudável",
+      "hs_band": "60-80",
+      "n_obs": 249,
+      "churn_rate": 0.004016064257028112,
+      "ci_low": 0.0,
+      "ci_high": 0.007142857142857143
+    },
+    {
+      "phase": "Saudável",
+      "hs_band": "80-100",
+      "n_obs": 41,
+      "churn_rate": 0.04878048780487805,
+      "ci_low": 0.0,
+      "ci_high": 0.10526315789473684
+    },
+    {
+      "phase": "Atenção",
+      "hs_band": "20-40",
+      "n_obs": 1877,
+      "churn_rate": 0.041022908897176344,
+      "ci_low": 0.03128683690096514,
+      "ci_high": 0.05039037691052085
+    },
+    {
+      "phase": "Atenção",
+      "hs_band": "40-60",
+      "n_obs": 951,
+      "churn_rate": 0.029442691903259727,
+      "ci_low": 0.020014301693387276,
+      "ci_high": 0.03846486187196416
+    },
+    {
+      "phase": "Crítico",
+      "hs_band": "0-20",
+      "n_obs": 548,
+      "churn_rate": 0.2791970802919708,
+      "ci_low": 0.2384934819175778,
+      "ci_high": 0.3143076504431659
+    },
+    {
+      "phase": "Sem registro",
+      "hs_band": "0-20",
+      "n_obs": 3005,
+      "churn_rate": 0.21430948419301166,
+      "ci_low": 0.19838777202072538,
+      "ci_high": 0.2323560273517427
+    }
+  ],
+  "temporal_features": [
+    {
+      "feature": "reunioes_30d",
+      "coverage": 1.0,
+      "zero_share": 0.8495,
+      "usable": true,
+      "note": "Contagem PIT 30d — presente no export; imputação mediana só no pipeline sklearn — não confundir com churn=0."
+    },
+    {
+      "feature": "reunioes_90d",
+      "coverage": 1.0,
+      "zero_share": 0.7811,
+      "usable": true,
+      "note": "Contagem PIT 90d; imputação mediana só no pipeline sklearn — não confundir com churn=0."
+    },
+    {
+      "feature": "reunioes_180d",
+      "coverage": 1.0,
+      "zero_share": 0.7675,
+      "usable": true,
+      "note": "Contagem PIT 180d; imputação mediana só no pipeline sklearn — não confundir com churn=0."
+    },
+    {
+      "feature": "recencia_dias",
+      "coverage": 0.2325,
+      "zero_share": 0.009,
+      "usable": false,
+      "note": "Dias desde última reunião até referência; imputação mediana só no pipeline sklearn — não confundir com churn=0."
+    },
+    {
+      "feature": "freq_media_mes",
+      "coverage": 1.0,
+      "zero_share": 0.7675,
+      "usable": true,
+      "note": "Média mensal acumulada desde ciclo/entrada; imputação mediana só no pipeline sklearn — não confundir com churn=0."
+    },
+    {
+      "feature": "reunioes_acumuladas",
+      "coverage": 1.0,
+      "zero_share": 0.7675,
+      "usable": true,
+      "note": "Total acumulado até referência; imputação mediana só no pipeline sklearn — não confundir com churn=0."
+    },
+    {
+      "feature": "meses_desde_primeira_obs",
+      "coverage": 1.0,
+      "zero_share": 0.2227,
+      "usable": true,
+      "note": "Proxy tenure no painel (1ª obs do cliente no export); imputação mediana só no pipeline sklearn — não confundir com churn=0."
+    },
+    {
+      "feature": "mecanismos_implantados",
+      "coverage": 1.0,
+      "zero_share": 0.8506,
+      "usable": true,
+      "note": "Contagem implantados até referência; imputação mediana só no pipeline sklearn — não confundir com churn=0."
+    },
+    {
+      "feature": "variacao_reunioes_30_vs_90",
+      "coverage": 1.0,
+      "usable": true,
+      "note": "Correlação 30d×90d=0.779 — sinal redundante parcial."
+    },
+    {
+      "feature": "nps_historico",
+      "coverage": 0.0,
+      "usable": false,
+      "note": "NPS point-in-time não está no dataset_preditivo_validado.csv atual."
+    },
+    {
+      "feature": "suporte_pendencias",
+      "coverage": 0.0,
+      "usable": false,
+      "note": "Demandas/suporte históricos não exportados nesta versão."
+    }
+  ],
+  "horizons": [
+    {
+      "horizon_days": 90,
+      "labeled_rows": 14609,
+      "unique_clients": 3254,
+      "positive_rows": 4125,
+      "observed_rate": 0.2823601889246355,
+      "note_30_60": "Horizontes 30d/60d exigem extensão do export (janelas no build-validated); não inferidos aqui."
+    },
+    {
+      "horizon_days": 180,
+      "labeled_rows": 8370,
+      "unique_clients": 2924,
+      "positive_rows": 4062,
+      "observed_rate": 0.4853046594982079,
+      "note_30_60": "Horizontes 30d/60d exigem extensão do export (janelas no build-validated); não inferidos aqui."
+    }
+  ],
+  "horizon_model_e": [
+    {
+      "horizon_days": 90,
+      "test_months": [
+        "2026-07"
+      ],
+      "roc_auc_test": 0.6805190818867024,
+      "pr_auc_test": 0.2221775193312101,
+      "prevalence_test": 0.13363139592647788,
+      "n_test": 2013,
+      "note": "Mesmo protocolo de split; jun/2026 não é validação confirmatória."
+    },
+    {
+      "horizon_days": 180,
+      "roc_auc_test": null,
+      "note": "Cobertura de rótulos 90d (['2026-02', '2026-03', '2026-04']) não permite treino purgado + teste (90d)."
+    }
+  ],
+  "diagnosis": {
+    "title": "Por que o modelo ainda não melhorou?",
+    "bullets": [
+      "Diferença ROC-AUC V2−E no teste congelado: +0.0032 (IC95% bootstrap por cliente [-0.0163, +0.0214]) — **sem ganho estatístico claro**.",
+      "Churn observado muito maior em implantação (40.6%, n=7938) que pós-implantação (13.6%) — modelos globais misturam fases distintas.",
+      "Faixa HS 0–20 concentra alta taxa observada (37.4%) — muitos zeros refletem ausência de engajamento, não só risco contratual.",
+      "NPS e suporte histórico não estão no export validado — sinais de satisfação operacional não entram nos modelos.",
+      "Horizontes 30d/60d não exportados; comparação limitada a 90d vs 180d.",
+      "Validação prospectiva independente ainda ausente — resultados permanecem exploratórios."
+    ]
+  },
+  "methodological_recommendation": "Manter Modelo E (Etapa 4) como referência congelada até validação temporal independente. Priorizar reengenharia de export (NPS PIT, horizontes 30/60, tenure contratual real) e estratificação por fase — não trocar algoritmo sem ganho pareado significativo."
+}

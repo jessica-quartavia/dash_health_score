@@ -1,0 +1,193 @@
+{
+  "version": "etapa7-v1",
+  "exploratory_note": "Comparações descritivas; jun/2026 já usado em etapas anteriores — sem validação confirmatória.",
+  "hs_v1": {
+    "formula": "0.5*E+0.5*M",
+    "distribuicao_faixas": [
+      {
+        "faixa": "0-20",
+        "n": 9577,
+        "share": 0.7603207367418228
+      },
+      {
+        "faixa": "20-40",
+        "n": 1751,
+        "share": 0.13901238488409018
+      },
+      {
+        "faixa": "40-60",
+        "n": 1081,
+        "share": 0.08582089552238806
+      },
+      {
+        "faixa": "60-80",
+        "n": 163,
+        "share": 0.012940616068593204
+      },
+      {
+        "faixa": "80-100",
+        "n": 24,
+        "share": 0.001905366783105748
+      }
+    ],
+    "cobertura_score": 1.0
+  },
+  "hs_2_0a": {
+    "score_igual_v1": true,
+    "contexto_por_perfil": [
+      {
+        "perfil_relacionamento": "baixa_atividade_observada",
+        "count": 270,
+        "mean": 31.037037037037038,
+        "std": 19.36824036103017
+      },
+      {
+        "perfil_relacionamento": "dados_inconsistentes",
+        "count": 3643,
+        "mean": 9.12983804556684,
+        "std": 17.823202662788372
+      },
+      {
+        "perfil_relacionamento": "em_implantacao",
+        "count": 5621,
+        "mean": 4.956413449564135,
+        "std": 13.827317856029152
+      },
+      {
+        "perfil_relacionamento": "historico_insuficiente",
+        "count": 1018,
+        "mean": 25.844793713163064,
+        "std": 16.42370033071945
+      },
+      {
+        "perfil_relacionamento": "mecanismos_nao_observaveis",
+        "count": 1575,
+        "mean": 5.784126984126984,
+        "std": 12.213855817700662
+      },
+      {
+        "perfil_relacionamento": "relacionamento_estabelecido",
+        "count": 469,
+        "mean": 56.204690831556505,
+        "std": 21.395959243889408
+      }
+    ],
+    "qualidade_informacional": {
+      "confiabilidade_parcial": 10457,
+      "alta_confiabilidade": 2139
+    }
+  },
+  "hs_2_0b": {
+    "sem_score_agregado": true,
+    "cobertura_dimensoes": {
+      "engajamento": 1.0,
+      "mecanismos_completa": 0.3073991743410607,
+      "continuidade_confiavel": 0.7861225785963798,
+      "satisfacao_nps": {
+        "disponivel": true,
+        "linhas": 715,
+        "clientes": 583
+      },
+      "suporte": {
+        "disponivel": false
+      }
+    },
+    "dimensoes_confiaveis_tipicas": [
+      "engajamento",
+      "continuidade_relacionamento"
+    ]
+  },
+  "associacao_churn_descritiva": [
+    {
+      "perfil": "em_implantacao",
+      "churn_90d": {
+        "rate": 0.424479629959082,
+        "ci_low": 0.41004941851676424,
+        "ci_high": 0.4408013189457139,
+        "n_obs": 5621,
+        "n_clients": 2095
+      },
+      "hs_medio": 4.956413449564135
+    },
+    {
+      "perfil": "mecanismos_nao_observaveis",
+      "churn_90d": {
+        "rate": 0.32126984126984126,
+        "ci_low": 0.2958287276515144,
+        "ci_high": 0.34288160536095136,
+        "n_obs": 1575,
+        "n_clients": 875
+      },
+      "hs_medio": 5.784126984126984
+    },
+    {
+      "perfil": "historico_insuficiente",
+      "churn_90d": {
+        "rate": 0.0412573673870334,
+        "ci_low": 0.02725809904381333,
+        "ci_high": 0.05125428357249947,
+        "n_obs": 1018,
+        "n_clients": 370
+      },
+      "hs_medio": 25.844793713163064
+    },
+    {
+      "perfil": "dados_inconsistentes",
+      "churn_90d": {
+        "rate": 0.2454021410925062,
+        "ci_low": 0.2262759968790835,
+        "ci_high": 0.26541998048345716,
+        "n_obs": 3643,
+        "n_clients": 1006
+      },
+      "hs_medio": 9.12983804556684
+    },
+    {
+      "perfil": "baixa_atividade_observada",
+      "churn_90d": {
+        "rate": 0.08148148148148149,
+        "ci_low": 0.05375703139176193,
+        "ci_high": 0.10930127948820471,
+        "n_obs": 270,
+        "n_clients": 141
+      },
+      "hs_medio": 31.037037037037038
+    },
+    {
+      "perfil": "relacionamento_estabelecido",
+      "churn_90d": {
+        "rate": 0.010660980810234541,
+        "ci_low": 0.0,
+        "ci_high": 0.01773526271638832,
+        "n_obs": 469,
+        "n_clients": 257
+      },
+      "hs_medio": 56.204690831556505
+    }
+  ],
+  "por_programa": [
+    {
+      "programa": "DAVOS",
+      "n": 1360,
+      "hs_v1_medio": 11.220588235294118,
+      "churn_rate": 0.07205882352941176,
+      "share_implantacao": 0.2
+    },
+    {
+      "programa": "PHARUS",
+      "n": 11229,
+      "hs_v1_medio": 10.327722860450619,
+      "churn_rate": 0.3341348294594354,
+      "share_implantacao": 0.47573247840413213
+    }
+  ],
+  "implantacao": {
+    "n": 5621,
+    "hs_v1_medio": 4.956413449564135,
+    "churn_rate": 0.424479629959082
+  },
+  "diferenciacao": {
+    "entropia_perfis_relacionamento": 1.3870315161097817,
+    "n_perfis_ativos": 6
+  }
+}

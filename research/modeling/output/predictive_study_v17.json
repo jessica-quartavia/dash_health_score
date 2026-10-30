@@ -1,0 +1,1365 @@
+{
+  "version": "predictive-study-v17",
+  "status": "ok",
+  "generatedAt": "2026-10-30T03:27:05.600135+00:00",
+  "environment": {
+    "python": "3.13.14 (tags/v3.13.14:fd17997, Jun 10 2026, 13:03:48) [MSC v.1944 64 bit (AMD64)]",
+    "sklearn": "1.9.1",
+    "seed": 42
+  },
+  "manifest": {
+    "study_version": "predictive-study-v17",
+    "state": "calibration_exploratory",
+    "processed_at": "2026-10-30T03:27:05.591106+00:00",
+    "dataset_hash_sha256_16": "79099ee143a9881e",
+    "preserves": [
+      "predictive_study_v16.json",
+      "modeling_results_etapa4.json"
+    ],
+    "artifacts": {
+      "output": "predictive_study_v17.json"
+    }
+  },
+  "objective": {
+    "title": "Calibração e validação preditiva",
+    "horizon_days": 90,
+    "goal": "Separar discriminação (ranking) de calibração (probabilidades) sem otimizar no hold-out final"
+  },
+  "dataset_audit": {
+    "observations_eligible_90d": 14609,
+    "positive_observation_months": 4125,
+    "negative_observation_months": 10484,
+    "prevalence_by_observation": 0.2824,
+    "unique_clients_in_model_frame": 3254,
+    "unique_clients_with_any_positive_month": 1510,
+    "clients_with_multiple_positive_months": 1411,
+    "mean_positive_months_per_churned_client": 2.732,
+    "churn_episode_rows": 1536,
+    "churn_episodes_confirmed": 1536,
+    "pre_audit_crosswalk": {
+      "positive_rows_90d": 3855,
+      "unique_clients_labeled_90d": 3233,
+      "date_conflict_clients": 66,
+      "reactivated_proxy_multi_month_span": 1536
+    },
+    "methodological_notes": [
+      "Observações cliente-mês elegíveis não são clientes independentes — métricas pareadas usam bootstrap por cliente.",
+      "Taxa por linha ≠ taxa anual por cliente; comparar sempre o mesmo denominador.",
+      "pre_audit.reactivated_proxy_multi_month_span=1536 é proxy de reativação/cobertura multi-mês, não contagem de episódios de churn.",
+      "churn_consolidado.csv: 1536 linhas; confirmados=1536."
+    ]
+  },
+  "v16_audit_reference": {
+    "holdout": "2026-07",
+    "models_compared": [
+      {
+        "id": "baseline_prevalence",
+        "roc_auc": 0.5,
+        "brier": 0.1157740459492188
+      },
+      {
+        "id": "model_E_frozen_family",
+        "roc_auc": 0.6805190818867024,
+        "brier": 0.17123843700918578
+      },
+      {
+        "id": "logistic_baseline_plus_mechanisms",
+        "roc_auc": 0.6282794328297124,
+        "brier": 0.19777747506707904
+      },
+      {
+        "id": "hgb_baseline_plus_mechanisms",
+        "roc_auc": 0.6563821578390915,
+        "brier": 0.1294669866968657
+      }
+    ]
+  },
+  "temporal_audit": {
+    "months_in_dataset": [
+      "2026-02",
+      "2026-03",
+      "2026-04",
+      "2026-05",
+      "2026-06",
+      "2026-07"
+    ],
+    "months_used_in_prior_research_not_confirmatory": [
+      "2026-06",
+      "2026-07"
+    ],
+    "evaluation_month": "2026-07",
+    "evaluation_purpose": "diagnostic_replication_v16_not_new_confirmatory_test",
+    "note": "Hold-out exploratório principal: 2026-07 (jun/2026 reservado apenas como referência histórica Etapa 4). Etapa 17 reutiliza o mesmo mês apenas para **diagnóstico de calibração** — jun/2026 (Etapa 4) e jul/2026 (Etapa 16) não são apresentados como novos testes confirmatórios. Calibração Platt/isotônica ajustada somente em meses de validação interna anteriores ao teste.",
+    "inner_val_months": [
+      "2026-03"
+    ],
+    "train_months": [
+      "2026-02",
+      "2026-03"
+    ]
+  },
+  "diagnosis": {
+    "class_weight_balanced": "class_weight='balanced' no Modelo E repesa classes raras e tende a **aumentar** probabilidades médias acima da prevalência do teste — melhora ranking (ROC) mas piora Brier frente ao baseline de prevalência constante.",
+    "probability_summary_E_balanced": {
+      "prevalence_observed": 0.13363139592647788,
+      "prob_mean": 0.3045481576760991,
+      "prob_median": 0.24334821729209283,
+      "prob_p10": 0.002767707799795721,
+      "prob_p90": 0.5765388021690125
+    },
+    "test_prevalence": 0.13363139592647788,
+    "why_high_auc_low_brier_vs_prevalence": "ROC mede ordenação; Brier penaliza desvio da probabilidade real. Balanceamento de classes e variabilidade real elevam médias previstas; HGB captura não-linearidades com melhor Brier mas ROC menor neste hold-out exploratório."
+  },
+  "experiments": [
+    {
+      "id": "model_E_balanced",
+      "label": "Modelo E original (L2, class_weight balanced)",
+      "test": {
+        "roc_auc": 0.6796835032911566,
+        "pr_auc": 0.22157965021910697,
+        "brier": 0.17135282010252778,
+        "log_loss": 0.5085355877204082,
+        "precision": 0.208955223880597,
+        "recall": 0.6245353159851301,
+        "f1": 0.3131407269338304,
+        "threshold": 0.5,
+        "prevalence": 0.13363139592647788,
+        "n": 2013,
+        "positives": 269,
+        "confusion": {
+          "tn": 1108,
+          "fp": 636,
+          "fn": 101,
+          "tp": 168
+        },
+        "model_id": "model_E_balanced",
+        "label": "Modelo E original (L2, class_weight balanced)",
+        "calibration_bins": [
+          {
+            "bin_lo": 0.0,
+            "bin_hi": 0.1,
+            "pred_mean": 0.02177964671349097,
+            "observed": 0.03829160530191458,
+            "n": 679
+          },
+          {
+            "bin_lo": 0.1,
+            "bin_hi": 0.2,
+            "pred_mean": 0.1653905184615252,
+            "observed": 0.1404109589041096,
+            "n": 292
+          },
+          {
+            "bin_lo": 0.2,
+            "bin_hi": 0.30000000000000004,
+            "pred_mean": 0.2511441918300908,
+            "observed": 0.1724137931034483,
+            "n": 87
+          },
+          {
+            "bin_lo": 0.30000000000000004,
+            "bin_hi": 0.4,
+            "pred_mean": 0.35125678673289684,
+            "observed": 0.08860759493670886,
+            "n": 79
+          },
+          {
+            "bin_lo": 0.4,
+            "bin_hi": 0.5,
+            "pred_mean": 0.4498865971986283,
+            "observed": 0.16666666666666666,
+            "n": 72
+          },
+          {
+            "bin_lo": 0.5,
+            "bin_hi": 0.6000000000000001,
+            "pred_mean": 0.5741609177902035,
+            "observed": 0.20133333333333334,
+            "n": 750
+          },
+          {
+            "bin_lo": 0.6000000000000001,
+            "bin_hi": 0.7000000000000001,
+            "pred_mean": 0.6451534995539443,
+            "observed": 0.2727272727272727,
+            "n": 33
+          },
+          {
+            "bin_lo": 0.7000000000000001,
+            "bin_hi": 0.8,
+            "pred_mean": 0.7541079140955399,
+            "observed": 0.3684210526315789,
+            "n": 19
+          },
+          {
+            "bin_lo": 0.8,
+            "bin_hi": 0.9,
+            "pred_mean": 0.871779928797807,
+            "observed": 0.5,
+            "n": 2
+          }
+        ],
+        "calibration_logit": {
+          "intercept": -1.464735771493634,
+          "slope": 0.3518321369275376,
+          "n": 2013,
+          "note": "slope≈1 e intercept≈0 indicam calibração agregada razoável na escala logit"
+        },
+        "probability_summary": {
+          "prevalence_observed": 0.13363139592647788,
+          "prob_mean": 0.3045481576760991,
+          "prob_median": 0.24334821729209283,
+          "prob_p10": 0.002767707799795721,
+          "prob_p90": 0.5765388021690125
+        },
+        "risk_groups": [
+          {
+            "group": 1,
+            "label": "G1",
+            "pred_mean": 0.0057948873505507675,
+            "observed_rate": 0.03233830845771144,
+            "n": 402
+          },
+          {
+            "group": 2,
+            "label": "G2",
+            "pred_mean": 0.07203165798443475,
+            "observed_rate": 0.07444168734491315,
+            "n": 403
+          },
+          {
+            "group": 3,
+            "label": "G3",
+            "pred_mean": 0.2803913373562041,
+            "observed_rate": 0.14427860696517414,
+            "n": 402
+          },
+          {
+            "group": 4,
+            "label": "G4",
+            "pred_mean": 0.5715319678179849,
+            "observed_rate": 0.19602977667493796,
+            "n": 403
+          },
+          {
+            "group": 5,
+            "label": "G5",
+            "pred_mean": 0.5921896721377095,
+            "observed_rate": 0.22084367245657568,
+            "n": 403
+          }
+        ],
+        "bootstrap_roc_auc": {
+          "mean": 0.680949127594296,
+          "ci_low": 0.6605588163469063,
+          "ci_high": 0.7033750966123214,
+          "n": 200
+        }
+      }
+    },
+    {
+      "id": "model_E_unbalanced",
+      "label": "Modelo E sem balanceamento de classes",
+      "test": {
+        "roc_auc": 0.6696288496299581,
+        "pr_auc": 0.21140215370524262,
+        "brier": 0.13842337764082088,
+        "log_loss": 0.4470700613402309,
+        "precision": 0.265625,
+        "recall": 0.06319702602230483,
+        "f1": 0.1021021021021021,
+        "threshold": 0.5,
+        "prevalence": 0.13363139592647788,
+        "n": 2013,
+        "positives": 269,
+        "confusion": {
+          "tn": 1697,
+          "fp": 47,
+          "fn": 252,
+          "tp": 17
+        },
+        "model_id": "model_E_unbalanced",
+        "label": "Modelo E sem balanceamento de classes",
+        "calibration_bins": [
+          {
+            "bin_lo": 0.0,
+            "bin_hi": 0.1,
+            "pred_mean": 0.02322219118124522,
+            "observed": 0.0548469387755102,
+            "n": 784
+          },
+          {
+            "bin_lo": 0.1,
+            "bin_hi": 0.2,
+            "pred_mean": 0.13493203886618838,
+            "observed": 0.14624505928853754,
+            "n": 253
+          },
+          {
+            "bin_lo": 0.2,
+            "bin_hi": 0.30000000000000004,
+            "pred_mean": 0.24497516757133767,
+            "observed": 0.13095238095238096,
+            "n": 84
+          },
+          {
+            "bin_lo": 0.30000000000000004,
+            "bin_hi": 0.4,
+            "pred_mean": 0.3504988706568093,
+            "observed": 0.09876543209876543,
+            "n": 81
+          },
+          {
+            "bin_lo": 0.4,
+            "bin_hi": 0.5,
+            "pred_mean": 0.43959500962269343,
+            "observed": 0.20481927710843373,
+            "n": 747
+          },
+          {
+            "bin_lo": 0.5,
+            "bin_hi": 0.6000000000000001,
+            "pred_mean": 0.5467672280550235,
+            "observed": 0.17142857142857143,
+            "n": 35
+          },
+          {
+            "bin_lo": 0.6000000000000001,
+            "bin_hi": 0.7000000000000001,
+            "pred_mean": 0.6454511053300648,
+            "observed": 0.46153846153846156,
+            "n": 13
+          },
+          {
+            "bin_lo": 0.7000000000000001,
+            "bin_hi": 0.8,
+            "pred_mean": 0.7349176705035088,
+            "observed": 0.2857142857142857,
+            "n": 14
+          },
+          {
+            "bin_lo": 0.8,
+            "bin_hi": 0.9,
+            "pred_mean": 0.8583394100914885,
+            "observed": 0.5,
+            "n": 2
+          }
+        ],
+        "calibration_logit": {
+          "intercept": -1.3138996536940368,
+          "slope": 0.33482384303298546,
+          "n": 2013,
+          "note": "slope≈1 e intercept≈0 indicam calibração agregada razoável na escala logit"
+        },
+        "probability_summary": {
+          "prevalence_observed": 0.13363139592647788,
+          "prob_mean": 0.23309639446847322,
+          "prob_median": 0.17597756771735706,
+          "prob_p10": 0.001737664678353851,
+          "prob_p90": 0.4390951843674303
+        },
+        "risk_groups": [
+          {
+            "group": 1,
+            "label": "G1",
+            "pred_mean": 0.003988868610709068,
+            "observed_rate": 0.03233830845771144,
+            "n": 402
+          },
+          {
+            "group": 2,
+            "label": "G2",
+            "pred_mean": 0.04668375753798333,
+            "observed_rate": 0.08684863523573201,
+            "n": 403
+          },
+          {
+            "group": 3,
+            "label": "G3",
+            "pred_mean": 0.20626217729339272,
+            "observed_rate": 0.12686567164179105,
+            "n": 402
+          },
+          {
+            "group": 4,
+            "label": "G4",
+            "pred_mean": 0.43852071402952164,
+            "observed_rate": 0.2109181141439206,
+            "n": 403
+          },
+          {
+            "group": 5,
+            "label": "G5",
+            "pred_mean": 0.4693913636969807,
+            "observed_rate": 0.2109181141439206,
+            "n": 403
+          }
+        ],
+        "bootstrap_roc_auc": {
+          "mean": 0.6710878551363794,
+          "ci_low": 0.650929467105814,
+          "ci_high": 0.695242586378275,
+          "n": 200
+        }
+      }
+    },
+    {
+      "id": "model_E_balanced_C_tuned",
+      "label": "Modelo E balanced, C=0.5 (inner val)",
+      "test": {
+        "roc_auc": 0.6796835032911566,
+        "pr_auc": 0.22157965021910697,
+        "brier": 0.17135282010252778,
+        "log_loss": 0.5085355877204082,
+        "precision": 0.208955223880597,
+        "recall": 0.6245353159851301,
+        "f1": 0.3131407269338304,
+        "threshold": 0.5,
+        "prevalence": 0.13363139592647788,
+        "n": 2013,
+        "positives": 269,
+        "confusion": {
+          "tn": 1108,
+          "fp": 636,
+          "fn": 101,
+          "tp": 168
+        },
+        "model_id": "model_E_balanced_C_tuned",
+        "label": "Modelo E balanced, C=0.5 (inner val)",
+        "calibration_bins": [
+          {
+            "bin_lo": 0.0,
+            "bin_hi": 0.1,
+            "pred_mean": 0.02177964671349097,
+            "observed": 0.03829160530191458,
+            "n": 679
+          },
+          {
+            "bin_lo": 0.1,
+            "bin_hi": 0.2,
+            "pred_mean": 0.1653905184615252,
+            "observed": 0.1404109589041096,
+            "n": 292
+          },
+          {
+            "bin_lo": 0.2,
+            "bin_hi": 0.30000000000000004,
+            "pred_mean": 0.2511441918300908,
+            "observed": 0.1724137931034483,
+            "n": 87
+          },
+          {
+            "bin_lo": 0.30000000000000004,
+            "bin_hi": 0.4,
+            "pred_mean": 0.35125678673289684,
+            "observed": 0.08860759493670886,
+            "n": 79
+          },
+          {
+            "bin_lo": 0.4,
+            "bin_hi": 0.5,
+            "pred_mean": 0.4498865971986283,
+            "observed": 0.16666666666666666,
+            "n": 72
+          },
+          {
+            "bin_lo": 0.5,
+            "bin_hi": 0.6000000000000001,
+            "pred_mean": 0.5741609177902035,
+            "observed": 0.20133333333333334,
+            "n": 750
+          },
+          {
+            "bin_lo": 0.6000000000000001,
+            "bin_hi": 0.7000000000000001,
+            "pred_mean": 0.6451534995539443,
+            "observed": 0.2727272727272727,
+            "n": 33
+          },
+          {
+            "bin_lo": 0.7000000000000001,
+            "bin_hi": 0.8,
+            "pred_mean": 0.7541079140955399,
+            "observed": 0.3684210526315789,
+            "n": 19
+          },
+          {
+            "bin_lo": 0.8,
+            "bin_hi": 0.9,
+            "pred_mean": 0.871779928797807,
+            "observed": 0.5,
+            "n": 2
+          }
+        ],
+        "calibration_logit": {
+          "intercept": -1.464735771493634,
+          "slope": 0.3518321369275376,
+          "n": 2013,
+          "note": "slope≈1 e intercept≈0 indicam calibração agregada razoável na escala logit"
+        },
+        "probability_summary": {
+          "prevalence_observed": 0.13363139592647788,
+          "prob_mean": 0.3045481576760991,
+          "prob_median": 0.24334821729209283,
+          "prob_p10": 0.002767707799795721,
+          "prob_p90": 0.5765388021690125
+        },
+        "risk_groups": [
+          {
+            "group": 1,
+            "label": "G1",
+            "pred_mean": 0.0057948873505507675,
+            "observed_rate": 0.03233830845771144,
+            "n": 402
+          },
+          {
+            "group": 2,
+            "label": "G2",
+            "pred_mean": 0.07203165798443475,
+            "observed_rate": 0.07444168734491315,
+            "n": 403
+          },
+          {
+            "group": 3,
+            "label": "G3",
+            "pred_mean": 0.2803913373562041,
+            "observed_rate": 0.14427860696517414,
+            "n": 402
+          },
+          {
+            "group": 4,
+            "label": "G4",
+            "pred_mean": 0.5715319678179849,
+            "observed_rate": 0.19602977667493796,
+            "n": 403
+          },
+          {
+            "group": 5,
+            "label": "G5",
+            "pred_mean": 0.5921896721377095,
+            "observed_rate": 0.22084367245657568,
+            "n": 403
+          }
+        ],
+        "bootstrap_roc_auc": {
+          "mean": 0.680949127594296,
+          "ci_low": 0.6605588163469063,
+          "ci_high": 0.7033750966123214,
+          "n": 200
+        }
+      }
+    },
+    {
+      "id": "model_E_balanced_platt",
+      "label": "Modelo E + calibração sigmoide (Platt) ajustada na validação interna",
+      "test": {
+        "roc_auc": 0.6796835032911566,
+        "pr_auc": 0.22157965021910697,
+        "brier": 0.1391077246050177,
+        "log_loss": 0.43201245408710176,
+        "precision": 0.3148148148148148,
+        "recall": 0.06319702602230483,
+        "f1": 0.10526315789473684,
+        "threshold": 0.5,
+        "prevalence": 0.13363139592647788,
+        "n": 2013,
+        "positives": 269,
+        "confusion": {
+          "tn": 1707,
+          "fp": 37,
+          "fn": 252,
+          "tp": 17
+        },
+        "model_id": "model_E_balanced_platt",
+        "label": "Modelo E + calibração sigmoide (Platt) ajustada na validação interna",
+        "calibration_bins": [
+          {
+            "bin_lo": 0.0,
+            "bin_hi": 0.1,
+            "pred_mean": 0.04950766429736483,
+            "observed": 0.07026476578411406,
+            "n": 982
+          },
+          {
+            "bin_lo": 0.1,
+            "bin_hi": 0.2,
+            "pred_mean": 0.1423716363718577,
+            "observed": 0.13675213675213677,
+            "n": 117
+          },
+          {
+            "bin_lo": 0.2,
+            "bin_hi": 0.30000000000000004,
+            "pred_mean": 0.24246351336219588,
+            "observed": 0.1267605633802817,
+            "n": 71
+          },
+          {
+            "bin_lo": 0.30000000000000004,
+            "bin_hi": 0.4,
+            "pred_mean": 0.34565465361137965,
+            "observed": 0.13559322033898305,
+            "n": 59
+          },
+          {
+            "bin_lo": 0.4,
+            "bin_hi": 0.5,
+            "pred_mean": 0.4647407948252053,
+            "observed": 0.2054794520547945,
+            "n": 730
+          },
+          {
+            "bin_lo": 0.5,
+            "bin_hi": 0.6000000000000001,
+            "pred_mean": 0.5515719002155179,
+            "observed": 0.17857142857142858,
+            "n": 28
+          },
+          {
+            "bin_lo": 0.6000000000000001,
+            "bin_hi": 0.7000000000000001,
+            "pred_mean": 0.6533710516661476,
+            "observed": 0.46153846153846156,
+            "n": 13
+          },
+          {
+            "bin_lo": 0.7000000000000001,
+            "bin_hi": 0.8,
+            "pred_mean": 0.7279295594134679,
+            "observed": 0.45454545454545453,
+            "n": 11
+          },
+          {
+            "bin_lo": 0.8,
+            "bin_hi": 0.9,
+            "pred_mean": 0.8234550852718729,
+            "observed": 0.5,
+            "n": 2
+          }
+        ],
+        "calibration_logit": {
+          "intercept": -1.2363026380905497,
+          "slope": 0.4719217562896863,
+          "n": 2013,
+          "note": "slope≈1 e intercept≈0 indicam calibração agregada razoável na escala logit"
+        },
+        "probability_summary": {
+          "prevalence_observed": 0.13363139592647788,
+          "prob_mean": 0.23633149241504872,
+          "prob_median": 0.11602650320073808,
+          "prob_p10": 0.03235815222354349,
+          "prob_p90": 0.46584007299912905
+        },
+        "risk_groups": [
+          {
+            "group": 1,
+            "label": "G1",
+            "pred_mean": 0.032922371775616056,
+            "observed_rate": 0.03233830845771144,
+            "n": 402
+          },
+          {
+            "group": 2,
+            "label": "G2",
+            "pred_mean": 0.04856339195248057,
+            "observed_rate": 0.07444168734491315,
+            "n": 403
+          },
+          {
+            "group": 3,
+            "label": "G3",
+            "pred_mean": 0.15352095554498843,
+            "observed_rate": 0.14427860696517414,
+            "n": 402
+          },
+          {
+            "group": 4,
+            "label": "G4",
+            "pred_mean": 0.4588890606673622,
+            "observed_rate": 0.19602977667493796,
+            "n": 403
+          },
+          {
+            "group": 5,
+            "label": "G5",
+            "pred_mean": 0.4870514596595868,
+            "observed_rate": 0.22084367245657568,
+            "n": 403
+          }
+        ],
+        "bootstrap_roc_auc": {
+          "mean": 0.680949127594296,
+          "ci_low": 0.6605588163469063,
+          "ci_high": 0.7033750966123214,
+          "n": 200
+        }
+      }
+    },
+    {
+      "id": "model_E_balanced_isotonic",
+      "label": "Modelo E + calibração isotônica ajustada na validação interna",
+      "test": {
+        "roc_auc": 0.669430612871321,
+        "pr_auc": 0.1971325067394128,
+        "brier": 0.14064396524667222,
+        "log_loss": 0.4618896714706151,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "threshold": 0.5,
+        "prevalence": 0.13363139592647788,
+        "n": 2013,
+        "positives": 269,
+        "confusion": {
+          "tn": 1744,
+          "fp": 0,
+          "fn": 269,
+          "tp": 0
+        },
+        "model_id": "model_E_balanced_isotonic",
+        "label": "Modelo E + calibração isotônica ajustada na validação interna",
+        "calibration_bins": [
+          {
+            "bin_lo": 0.0,
+            "bin_hi": 0.1,
+            "pred_mean": 0.020888209423276596,
+            "observed": 0.054388133498145856,
+            "n": 809
+          },
+          {
+            "bin_lo": 0.1,
+            "bin_hi": 0.2,
+            "pred_mean": 0.1210942701801003,
+            "observed": 0.15416666666666667,
+            "n": 240
+          },
+          {
+            "bin_lo": 0.2,
+            "bin_hi": 0.30000000000000004,
+            "pred_mean": 0.2503986755978294,
+            "observed": 0.09195402298850575,
+            "n": 87
+          },
+          {
+            "bin_lo": 0.30000000000000004,
+            "bin_hi": 0.4,
+            "pred_mean": 0.33230813244690954,
+            "observed": 0.14705882352941177,
+            "n": 34
+          },
+          {
+            "bin_lo": 0.4,
+            "bin_hi": 0.5,
+            "pred_mean": 0.46468713011202056,
+            "observed": 0.20759193357058126,
+            "n": 843
+          }
+        ],
+        "calibration_logit": {
+          "intercept": -1.388455920007037,
+          "slope": 0.2707809918765197,
+          "n": 2013,
+          "note": "slope≈1 e intercept≈0 indicam calibração agregada razoável na escala logit"
+        },
+        "probability_summary": {
+          "prevalence_observed": 0.13363139592647788,
+          "prob_mean": 0.23386765933000223,
+          "prob_median": 0.12017167381974249,
+          "prob_p10": 0.01639344262295082,
+          "prob_p90": 0.4648964896489649
+        },
+        "risk_groups": [
+          {
+            "group": 1,
+            "label": "G1",
+            "pred_mean": 0.011038763481175634,
+            "observed_rate": 0.04228855721393035,
+            "n": 402
+          },
+          {
+            "group": 2,
+            "label": "G2",
+            "pred_mean": 0.030368035781282988,
+            "observed_rate": 0.06699751861042183,
+            "n": 403
+          },
+          {
+            "group": 3,
+            "label": "G3",
+            "pred_mean": 0.19749533889288312,
+            "observed_rate": 0.1417910447761194,
+            "n": 402
+          },
+          {
+            "group": 4,
+            "label": "G4",
+            "pred_mean": 0.46489648964896474,
+            "observed_rate": 0.20843672456575682,
+            "n": 403
+          },
+          {
+            "group": 5,
+            "label": "G5",
+            "pred_mean": 0.46489648964896474,
+            "observed_rate": 0.20843672456575682,
+            "n": 403
+          }
+        ],
+        "bootstrap_roc_auc": {
+          "mean": 0.6705704742952635,
+          "ci_low": 0.6515930725408332,
+          "ci_high": 0.691966524755638,
+          "n": 200
+        }
+      }
+    },
+    {
+      "id": "hgb_best_pack",
+      "label": "HistGradientBoosting Etapa 16 (baseline_original)",
+      "test": {
+        "roc_auc": 0.6853982640428362,
+        "pr_auc": 0.21869085769571778,
+        "brier": 0.16458554557463334,
+        "log_loss": 0.531107576902757,
+        "precision": 0.2190237797246558,
+        "recall": 0.6505576208178439,
+        "f1": 0.32771535580524347,
+        "threshold": 0.5,
+        "prevalence": 0.13363139592647788,
+        "n": 2013,
+        "positives": 269,
+        "confusion": {
+          "tn": 1120,
+          "fp": 624,
+          "fn": 94,
+          "tp": 175
+        },
+        "model_id": "hgb_best_pack",
+        "label": "HistGradientBoosting Etapa 16 (baseline_original)",
+        "calibration_bins": [
+          {
+            "bin_lo": 0.0,
+            "bin_hi": 0.1,
+            "pred_mean": 0.01334004803136258,
+            "observed": 0.0643611911623439,
+            "n": 1041
+          },
+          {
+            "bin_lo": 0.1,
+            "bin_hi": 0.2,
+            "pred_mean": 0.18545640630188479,
+            "observed": 0.1402439024390244,
+            "n": 164
+          },
+          {
+            "bin_lo": 0.2,
+            "bin_hi": 0.30000000000000004,
+            "pred_mean": 0.2574140067270094,
+            "observed": 0.3333333333333333,
+            "n": 3
+          },
+          {
+            "bin_lo": 0.30000000000000004,
+            "bin_hi": 0.4,
+            "pred_mean": 0.35813023703619523,
+            "observed": 0.5,
+            "n": 4
+          },
+          {
+            "bin_lo": 0.4,
+            "bin_hi": 0.5,
+            "pred_mean": 0.49537544989041227,
+            "observed": 0.5,
+            "n": 2
+          },
+          {
+            "bin_lo": 0.5,
+            "bin_hi": 0.6000000000000001,
+            "pred_mean": 0.5752624564098278,
+            "observed": 0.20572207084468666,
+            "n": 734
+          },
+          {
+            "bin_lo": 0.6000000000000001,
+            "bin_hi": 0.7000000000000001,
+            "pred_mean": 0.6706034269314328,
+            "observed": 0.41509433962264153,
+            "n": 53
+          },
+          {
+            "bin_lo": 0.7000000000000001,
+            "bin_hi": 0.8,
+            "pred_mean": 0.7969594859073412,
+            "observed": 0.0,
+            "n": 4
+          },
+          {
+            "bin_lo": 0.8,
+            "bin_hi": 0.9,
+            "pred_mean": 0.85402396070346,
+            "observed": 0.2857142857142857,
+            "n": 7
+          },
+          {
+            "bin_lo": 0.9,
+            "bin_hi": 1.0,
+            "pred_mean": 0.9186428543565681,
+            "observed": 0.0,
+            "n": 1
+          }
+        ],
+        "calibration_logit": {
+          "intercept": -1.3697998200521555,
+          "slope": 0.24707905918052792,
+          "n": 2013,
+          "note": "slope≈1 e intercept≈0 indicam calibração agregada razoável na escala logit"
+        },
+        "probability_summary": {
+          "prevalence_observed": 0.13363139592647788,
+          "prob_mean": 0.25601918909953,
+          "prob_median": 0.071706746593218,
+          "prob_p10": 0.0009532584934921892,
+          "prob_p90": 0.5771461968354582
+        },
+        "risk_groups": [
+          {
+            "group": 1,
+            "label": "G1",
+            "pred_mean": 0.0011687227944409497,
+            "observed_rate": 0.03482587064676617,
+            "n": 402
+          },
+          {
+            "group": 2,
+            "label": "G2",
+            "pred_mean": 0.007471990329693515,
+            "observed_rate": 0.08933002481389578,
+            "n": 403
+          },
+          {
+            "group": 3,
+            "label": "G3",
+            "pred_mean": 0.10272945630106632,
+            "observed_rate": 0.09950248756218906,
+            "n": 402
+          },
+          {
+            "group": 4,
+            "label": "G4",
+            "pred_mean": 0.5704374761226613,
+            "observed_rate": 0.21588089330024815,
+            "n": 403
+          },
+          {
+            "group": 5,
+            "label": "G5",
+            "pred_mean": 0.5972755451133026,
+            "observed_rate": 0.228287841191067,
+            "n": 403
+          }
+        ],
+        "bootstrap_roc_auc": {
+          "mean": 0.6847362169404824,
+          "ci_low": 0.6591960913011746,
+          "ci_high": 0.7066406278496213,
+          "n": 200
+        }
+      }
+    },
+    {
+      "id": "baseline_prevalence",
+      "label": "Baseline prevalência constante (treino)",
+      "test": {
+        "roc_auc": 0.5,
+        "pr_auc": 0.13363139592647788,
+        "brier": 0.1693661055252209,
+        "log_loss": 0.5282564603059683,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "threshold": 0.5,
+        "prevalence": 0.13363139592647788,
+        "n": 2013,
+        "positives": 269,
+        "confusion": {
+          "tn": 1744,
+          "fp": 0,
+          "fn": 269,
+          "tp": 0
+        },
+        "model_id": "baseline_prevalence",
+        "label": "Baseline prevalência constante (treino)",
+        "calibration_bins": [
+          {
+            "bin_lo": 0.30000000000000004,
+            "bin_hi": 0.4,
+            "pred_mean": 0.3651309846431798,
+            "observed": 0.13363139592647788,
+            "n": 2013
+          }
+        ],
+        "calibration_logit": {
+          "intercept": -1.4312081100877423,
+          "slope": 0.7916907205241568,
+          "n": 2013,
+          "note": "slope≈1 e intercept≈0 indicam calibração agregada razoável na escala logit"
+        },
+        "probability_summary": {
+          "prevalence_observed": 0.13363139592647788,
+          "prob_mean": 0.3651309846431798,
+          "prob_median": 0.3651309846431798,
+          "prob_p10": 0.3651309846431798,
+          "prob_p90": 0.3651309846431798
+        },
+        "risk_groups": [
+          {
+            "group": 1,
+            "label": "G1",
+            "pred_mean": 0.3651309846431797,
+            "observed_rate": 0.13432835820895522,
+            "n": 402
+          },
+          {
+            "group": 2,
+            "label": "G2",
+            "pred_mean": 0.3651309846431798,
+            "observed_rate": 0.13895781637717122,
+            "n": 403
+          },
+          {
+            "group": 3,
+            "label": "G3",
+            "pred_mean": 0.3651309846431797,
+            "observed_rate": 0.1517412935323383,
+            "n": 402
+          },
+          {
+            "group": 4,
+            "label": "G4",
+            "pred_mean": 0.3651309846431798,
+            "observed_rate": 0.11166253101736973,
+            "n": 403
+          },
+          {
+            "group": 5,
+            "label": "G5",
+            "pred_mean": 0.3651309846431798,
+            "observed_rate": 0.1315136476426799,
+            "n": 403
+          }
+        ],
+        "bootstrap_roc_auc": {
+          "mean": 0.5,
+          "ci_low": 0.5,
+          "ci_high": 0.5,
+          "n": 200
+        }
+      }
+    }
+  ],
+  "calibration_fit": {
+    "platt_fitted_on": [
+      "2026-03"
+    ],
+    "isotonic_fitted_on": [
+      "2026-03"
+    ],
+    "C_balanced_selected": 0.5,
+    "C_unbalanced_selected": 0.5,
+    "paired_platt_minus_E_auc": {
+      "diff_mean": 0.0,
+      "ci_low": 0.0,
+      "ci_high": 0.0,
+      "n": 300
+    }
+  },
+  "segments_model_E": [
+    {
+      "roc_auc": 0.6350371120107963,
+      "pr_auc": 0.12839439366574532,
+      "brier": 0.13065643753650136,
+      "log_loss": 0.40728661629603785,
+      "precision": 0.140625,
+      "recall": 0.375,
+      "f1": 0.20454545454545456,
+      "threshold": 0.5,
+      "prevalence": 0.08856088560885608,
+      "n": 271,
+      "positives": 24,
+      "confusion": {
+        "tn": 192,
+        "fp": 55,
+        "fn": 15,
+        "tp": 9
+      },
+      "model_id": "E_implantacao",
+      "label": "Modelo E — implantacao",
+      "calibration_bins": [
+        {
+          "bin_lo": 0.0,
+          "bin_hi": 0.1,
+          "pred_mean": 0.029308709545273284,
+          "observed": 0.05172413793103448,
+          "n": 116
+        },
+        {
+          "bin_lo": 0.1,
+          "bin_hi": 0.2,
+          "pred_mean": 0.15998783357291385,
+          "observed": 0.0967741935483871,
+          "n": 62
+        },
+        {
+          "bin_lo": 0.2,
+          "bin_hi": 0.30000000000000004,
+          "pred_mean": 0.2455062228193446,
+          "observed": 0.13333333333333333,
+          "n": 15
+        },
+        {
+          "bin_lo": 0.30000000000000004,
+          "bin_hi": 0.4,
+          "pred_mean": 0.3377385634407523,
+          "observed": 0.0,
+          "n": 8
+        },
+        {
+          "bin_lo": 0.4,
+          "bin_hi": 0.5,
+          "pred_mean": 0.44185876441577826,
+          "observed": 0.16666666666666666,
+          "n": 6
+        },
+        {
+          "bin_lo": 0.5,
+          "bin_hi": 0.6000000000000001,
+          "pred_mean": 0.5765388021690124,
+          "observed": 0.140625,
+          "n": 64
+        }
+      ],
+      "calibration_logit": {
+        "intercept": -1.8409745504551767,
+        "slope": 0.2775426838273386,
+        "n": 271,
+        "note": "slope≈1 e intercept≈0 indicam calibração agregada razoável na escala logit"
+      },
+      "probability_summary": {
+        "prevalence_observed": 0.08856088560885608,
+        "prob_mean": 0.2186464714535056,
+        "prob_median": 0.14092920965068056,
+        "prob_p10": 0.0030664314258974368,
+        "prob_p90": 0.5765388021690125
+      },
+      "risk_groups": [
+        {
+          "group": 1,
+          "label": "G1",
+          "pred_mean": 0.005427175292892738,
+          "observed_rate": 0.018518518518518517,
+          "n": 54
+        },
+        {
+          "group": 2,
+          "label": "G2",
+          "pred_mean": 0.0447363639305387,
+          "observed_rate": 0.07407407407407407,
+          "n": 54
+        },
+        {
+          "group": 3,
+          "label": "G3",
+          "pred_mean": 0.13847149023201125,
+          "observed_rate": 0.12962962962962962,
+          "n": 54
+        },
+        {
+          "group": 4,
+          "label": "G4",
+          "pred_mean": 0.3214308898890819,
+          "observed_rate": 0.07407407407407407,
+          "n": 54
+        },
+        {
+          "group": 5,
+          "label": "G5",
+          "pred_mean": 0.5765388021690123,
+          "observed_rate": 0.14545454545454545,
+          "n": 55
+        }
+      ],
+      "bootstrap_roc_auc": {
+        "mean": 0.6306983205792208,
+        "ci_low": 0.5520594055502995,
+        "ci_high": 0.6984728913098576,
+        "n": 200
+      }
+    },
+    {
+      "roc_auc": 0.6783880686543154,
+      "pr_auc": 0.2307052284345701,
+      "brier": 0.17768388765441825,
+      "log_loss": 0.5242867193254624,
+      "precision": 0.21486486486486486,
+      "recall": 0.6489795918367347,
+      "f1": 0.32284263959390863,
+      "threshold": 0.5,
+      "prevalence": 0.14064293915040182,
+      "n": 1742,
+      "positives": 245,
+      "confusion": {
+        "tn": 916,
+        "fp": 581,
+        "fn": 86,
+        "tp": 159
+      },
+      "model_id": "E_pos_implantacao",
+      "label": "Modelo E — pos_implantacao",
+      "calibration_bins": [
+        {
+          "bin_lo": 0.0,
+          "bin_hi": 0.1,
+          "pred_mean": 0.0202283655616495,
+          "observed": 0.035523978685612786,
+          "n": 563
+        },
+        {
+          "bin_lo": 0.1,
+          "bin_hi": 0.2,
+          "pred_mean": 0.16684689438802042,
+          "observed": 0.15217391304347827,
+          "n": 230
+        },
+        {
+          "bin_lo": 0.2,
+          "bin_hi": 0.30000000000000004,
+          "pred_mean": 0.2523187687073296,
+          "observed": 0.18055555555555555,
+          "n": 72
+        },
+        {
+          "bin_lo": 0.30000000000000004,
+          "bin_hi": 0.4,
+          "pred_mean": 0.3527799668221525,
+          "observed": 0.09859154929577464,
+          "n": 71
+        },
+        {
+          "bin_lo": 0.4,
+          "bin_hi": 0.5,
+          "pred_mean": 0.4506164001788873,
+          "observed": 0.16666666666666666,
+          "n": 66
+        },
+        {
+          "bin_lo": 0.5,
+          "bin_hi": 0.6000000000000001,
+          "pred_mean": 0.5739390743496151,
+          "observed": 0.20699708454810495,
+          "n": 686
+        },
+        {
+          "bin_lo": 0.6000000000000001,
+          "bin_hi": 0.7000000000000001,
+          "pred_mean": 0.6451534995539443,
+          "observed": 0.2727272727272727,
+          "n": 33
+        },
+        {
+          "bin_lo": 0.7000000000000001,
+          "bin_hi": 0.8,
+          "pred_mean": 0.7541079140955399,
+          "observed": 0.3684210526315789,
+          "n": 19
+        },
+        {
+          "bin_lo": 0.8,
+          "bin_hi": 0.9,
+          "pred_mean": 0.871779928797807,
+          "observed": 0.5,
+          "n": 2
+        }
+      ],
+      "calibration_logit": {
+        "intercept": -1.4303268241265383,
+        "slope": 0.35278265416728966,
+        "n": 1742,
+        "note": "slope≈1 e intercept≈0 indicam calibração agregada razoável na escala logit"
+      },
+      "probability_summary": {
+        "prevalence_observed": 0.14064293915040182,
+        "prob_mean": 0.31791173802416045,
+        "prob_median": 0.3045718181658258,
+        "prob_p10": 0.002767707799795721,
+        "prob_p90": 0.5765388021690125
+      },
+      "risk_groups": [
+        {
+          "group": 1,
+          "label": "G1",
+          "pred_mean": 0.005956588220384717,
+          "observed_rate": 0.034482758620689655,
+          "n": 348
+        },
+        {
+          "group": 2,
+          "label": "G2",
+          "pred_mean": 0.08250205205135323,
+          "observed_rate": 0.07758620689655173,
+          "n": 348
+        },
+        {
+          "group": 3,
+          "label": "G3",
+          "pred_mean": 0.32918334100195107,
+          "observed_rate": 0.1489971346704871,
+          "n": 349
+        },
+        {
+          "group": 4,
+          "label": "G4",
+          "pred_mean": 0.5764779087915848,
+          "observed_rate": 0.21264367816091953,
+          "n": 348
+        },
+        {
+          "group": 5,
+          "label": "G5",
+          "pred_mean": 0.5946112967173932,
+          "observed_rate": 0.22922636103151864,
+          "n": 349
+        }
+      ],
+      "bootstrap_roc_auc": {
+        "mean": 0.6802890892430341,
+        "ci_low": 0.6560156375693942,
+        "ci_high": 0.707002392750635,
+        "n": 200
+      }
+    }
+  ],
+  "conclusion_abc": {
+    "letter": "C",
+    "summary": "Dados e meses disponíveis limitam conclusões confirmatórias; ranking (ROC) e calibração (Brier) divergem — probabilidades agregadas ainda não confiáveis para operação.",
+    "best_brier_id": "model_E_unbalanced",
+    "best_roc_auc_id": "hgb_best_pack",
+    "prevalence_baseline_brier": 0.1693661055252209,
+    "model_E_balanced_brier": 0.17135282010252778,
+    "model_E_balanced_roc": 0.6796835032911566,
+    "class_weight_diagnosis": "class_weight='balanced' no Modelo E repesa classes raras e tende a **aumentar** probabilidades médias acima da prevalência do teste — melhora ranking (ROC) mas piora Brier frente ao baseline de prevalência constante.",
+    "recommendation": {
+      "operational_probabilities": false,
+      "best_calibrated_candidate": "model_E_balanced_platt",
+      "best_ranking_candidate": "hgb_best_pack"
+    }
+  },
+  "operational_limits": {
+    "publish_individual_probabilities": false,
+    "hs_official_50_50_unchanged": true,
+    "operational_deployment": false
+  },
+  "report_sections": {
+    "calibration": "Ver experiments[] e risk_groups do Modelo E balanced.",
+    "executive": "Dados e meses disponíveis limitam conclusões confirmatórias; ranking (ROC) e calibração (Brier) divergem — probabilidades agregadas ainda não confiáveis para operação."
+  }
+}

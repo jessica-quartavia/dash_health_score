@@ -1,0 +1,83 @@
+{
+  "unique_clients_all": 3425,
+  "unique_clients_labeled_90d": 3233,
+  "unique_clients_with_churn_outcome": 1456,
+  "positive_rows_90d": 3855,
+  "negative_rows_90d": 8741,
+  "positive_months_per_client_mean": 2.6476648351648353,
+  "positive_months_per_client_max": 3,
+  "positive_by_ref_month": {
+    "2026-02": 948,
+    "2026-03": 1073,
+    "2026-04": 1137,
+    "2026-05": 373,
+    "2026-06": 324
+  },
+  "negative_by_ref_month": {
+    "2026-02": 1767,
+    "2026-03": 1747,
+    "2026-04": 1698,
+    "2026-05": 1752,
+    "2026-06": 1777
+  },
+  "coverage_by_month": {
+    "2026-02": 2715,
+    "2026-03": 2820,
+    "2026-04": 2835,
+    "2026-05": 2125,
+    "2026-06": 2101,
+    "2026-07": 2013,
+    "2026-08": 2070,
+    "2026-09": 1959
+  },
+  "date_conflict_clients": 66,
+  "date_conflict_client_refs_sample": [
+    "c_0121d50768b1218bef54",
+    "c_03c68bd43d1364ab54f1",
+    "c_06d149cc41656c9733f2",
+    "c_0c0a9e24dfdc0d86cbc2",
+    "c_1946c32261364b8bb7f2",
+    "c_1aa1ec8a6a55bded491f",
+    "c_1b939a5bf7682a3ab07c",
+    "c_1c0ab4c2ef118604cb1d",
+    "c_1ccb89941e4a5108e2e7",
+    "c_20084ccc3ab7908c3f4f"
+  ],
+  "reactivated_proxy_multi_month_span": 1536,
+  "hs_distribution": {
+    "count": 18638,
+    "mean": 17.23682798583539,
+    "p25": 0.0,
+    "p50": 0.0,
+    "p75": 30.0
+  },
+  "missing_rates_labeled": {
+    "engajamento_historico": 0.0,
+    "mecanismos_historico": 0.0,
+    "hs_historico": 0.0,
+    "recencia_dias": 0.8070022229279136
+  },
+  "constant_columns_labeled": [
+    "cobertura_engajamento",
+    "confiabilidade_reconstrucao",
+    "versao_formula",
+    "elegivel_modelagem_90d",
+    "censura_90d",
+    "janela_90d_completa",
+    "data_observacao_asof",
+    "motivo_exclusao"
+  ],
+  "m_retrospective_note": "M usa status snapshot; linhas cobertura_mecanismos=parcial podem ter viés retrospectivo. Não assumir confiabilidade_reconstrucao=integral como prova histórica perfeita.",
+  "confiabilidade_counts": {
+    "integral": 18638
+  },
+  "cobertura_mecanismos_counts": {
+    "sem_vinculo": 12158,
+    "completa": 6480
+  },
+  "sensitivity_exclude_conflicts": {
+    "rows": 12329,
+    "positives": 3758,
+    "prevalence": 0.3048097980371482
+  }
+}

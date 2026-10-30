@@ -1,0 +1,181 @@
+{
+  "version": "etapa7-v1",
+  "generatedAt": "2026-10-23T20:28:45.509303+00:00",
+  "preserves": [
+    "etapa6_manifest.json",
+    "robustness_results.json",
+    "modeling_results_etapa4.json"
+  ],
+  "files": [
+    "HS_2_0_PROTOTYPE.md",
+    "hs2_profiles.json",
+    "hs2_data_quality.json",
+    "hs2_comparison.json",
+    "hs2_temporal_stability.json",
+    "prospective_validation_plan.md",
+    "RELATORIO_ETAPA7.md"
+  ],
+  "tenure_audit": {
+    "fontes": [
+      "cliente_ref",
+      "status",
+      "programa",
+      "engenheiro_ref",
+      "ciclo",
+      "data_inicio_ciclo",
+      "data_fim_ciclo",
+      "cliente_desde",
+      "created_at",
+      "data_churn",
+      "churn_tipo",
+      "data_ascensao",
+      "contrato_assinado",
+      "davos_contrato_assinado",
+      "segmentacao",
+      "temperatura",
+      "engajamento_label",
+      "engajamento_desde",
+      "valor_total_pago",
+      "is_retido",
+      "origin",
+      "pre_cadastro_comercial",
+      "app_pharus_access",
+      "archived_at",
+      "data_congelamento",
+      "data_descongelamento",
+      "renda_mensal",
+      "aporte",
+      "reserva_liquidez",
+      "valor_imoveis_quitados",
+      "possui_carro",
+      "possui_imovel",
+      "possui_consorcio",
+      "cheque_especial",
+      "parcelamento_cartao",
+      "credito_pessoal",
+      "credito_consignado",
+      "financeiro_atualizado_em",
+      "onboarding_grupo_criado",
+      "onboarding_cliente_entrou",
+      "onboarding_ep_adicionado",
+      "onboarding_time_adicionado",
+      "atividade_pendencia",
+      "atividade_situacao",
+      "atividade_hype",
+      "atividade_mapeamento",
+      "atividade_imersao",
+      "atividade_planejamento",
+      "atividade_implementacao",
+      "atividade_renovacao",
+      "atividade_contato_semanal",
+      "atividade_ultimo_contato"
+    ],
+    "regras": [
+      "entrada_contratual = data_inicio_ciclo ou cliente_desde (não created_at se lote migração)",
+      "tempo_ciclo_atual = ref - data_inicio_ciclo",
+      "tempo_relacionamento = ref - entrada_contratual",
+      "cobertura_reunioes_efetiva = ref >= first_meeting_coverage (proxy por cliente com reunião)"
+    ],
+    "share_migracao_created_2026_02": 0.904414099714195,
+    "share_entrada_confiavel": 0.7861225785963798
+  },
+  "highlights": {
+    "hs_v1_cobertura": 1.0,
+    "perfis": {
+      "em_implantacao": 5621,
+      "dados_inconsistentes": 3643,
+      "mecanismos_nao_observaveis": 1575,
+      "historico_insuficiente": 1018,
+      "relacionamento_estabelecido": 469,
+      "baixa_atividade_observada": 270
+    },
+    "validacao_futura_candidatos": [
+      "2026-03",
+      "2026-04",
+      "2026-05"
+    ],
+    "confirmatoria_viavel": true,
+    "qualidade_tiers": [
+      {
+        "categoria": "alta_confiabilidade",
+        "observacoes": 2139,
+        "clientes": 650,
+        "churn_90d": {
+          "rate": 0.02337540906965872,
+          "ci_low": 0.01705294561662054,
+          "ci_high": 0.0295041492886168,
+          "n_obs": 2139,
+          "n_clients": 650
+        },
+        "hs_medio": 27.23702664796634
+      },
+      {
+        "categoria": "confiabilidade_parcial",
+        "observacoes": 10457,
+        "clientes": 2890,
+        "churn_90d": {
+          "rate": 0.3638710911351248,
+          "ci_low": 0.350293227506789,
+          "ci_high": 0.37556019428466153,
+          "n_obs": 10457,
+          "n_clients": 2890
+        },
+        "hs_medio": 6.982882279812566
+      }
+    ],
+    "entropia_perfis": 1.3870315161097817
+  },
+  "comparison_summary": {
+    "hs_v1_distribuicao": [
+      {
+        "faixa": "0-20",
+        "n": 9577,
+        "share": 0.7603207367418228
+      },
+      {
+        "faixa": "20-40",
+        "n": 1751,
+        "share": 0.13901238488409018
+      },
+      {
+        "faixa": "40-60",
+        "n": 1081,
+        "share": 0.08582089552238806
+      },
+      {
+        "faixa": "60-80",
+        "n": 163,
+        "share": 0.012940616068593204
+      },
+      {
+        "faixa": "80-100",
+        "n": 24,
+        "share": 0.001905366783105748
+      }
+    ],
+    "hs_2b_cobertura": {
+      "engajamento": 1.0,
+      "mecanismos_completa": 0.3073991743410607,
+      "continuidade_confiavel": 0.7861225785963798,
+      "satisfacao_nps": {
+        "disponivel": true,
+        "linhas": 715,
+        "clientes": 583
+      },
+      "suporte": {
+        "disponivel": false
+      }
+    }
+  },
+  "success_criteria": {
+    "markdown_bullets": "1. **Saúde baixa vs info insuficiente:** separar `qualidade_informacional` e `perfil_relacionamento` do HS numérico.\n2. **Fórmula vs interpretação:** V1 precisa sobretudo de **interpretação** (2.0A); fórmula 50/50 mantida até val independente.\n3. **Dimensões confiáveis:** engajamento (E), continuidade proxy; M só com cobertura completa; NPS/suporte insuficientes.\n4. **2.0 vs perfis:** 2.0A diferencia contexto sem alterar score; entropia de perfis > faixa HS isolada.\n5. **Validação futura:** candidatos meses: ['2026-03', '2026-04', '2026-05'] — confirmatório viável\n6. **Risco operacional:** trilha calibrada pós-val; HS permanece descritivo."
+  },
+  "prototype_samples": {
+    "nps_export": {
+      "disponivel": true,
+      "linhas": 715,
+      "clientes": 583
+    },
+    "exemplos_estrutura": []
+  }
+}

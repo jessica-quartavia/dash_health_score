@@ -12,6 +12,7 @@ test("Vercel — vercel.json aponta build Node estático", () => {
   assert.match(cfg.buildCommand, /npm run build/);
   assert.equal(cfg.outputDirectory, "dist");
   assert.match(cfg.installCommand, /npm install/);
+  assert.ok(cfg.functions?.["api/**/*.js"]?.includeFiles?.includes("research/modeling/output"));
 });
 
 test("Vercel — sem requirements.txt na raiz (detecção Python)", () => {
@@ -36,6 +37,15 @@ test("Vercel — build produz dist com SPA e lib", async () => {
   assert.ok(existsSync(join(ROOT, "dist", "index.html")));
   assert.ok(existsSync(join(ROOT, "dist", "app.js")));
   assert.ok(existsSync(join(ROOT, "dist", "lib", "http", "fetch-json.mjs")));
+});
+
+test("Vercel — build espelha dist no cwd quando invocado fora da raiz (monorepo)", async () => {
+  const { execSync } = await import("node:child_process");
+  const parent = join(ROOT, "..");
+  const script = join(ROOT, "scripts", "vercel-build.mjs");
+  execSync(`node "${script}"`, { cwd: parent, stdio: "pipe", shell: true });
+  assert.ok(existsSync(join(ROOT, "dist", "index.html")));
+  assert.ok(existsSync(join(parent, "dist", "index.html")));
 });
 
 test("Vercel — rewrite SPA não menciona api no destino index", () => {
