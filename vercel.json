@@ -11,7 +11,7 @@
   },
   "rewrites": [
     {
-      "source": "/((?!api(?:/|$)).*)",
+      "source": "/((?!api(?:/|$))(?!.*\\.[a-zA-Z0-9]+(?:\\?.*)?$).*)",
       "destination": "/index.html"
     }
   ],
@@ -20,6 +20,20 @@
       "source": "/api/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "no-store" }
+      ]
+    },
+    {
+      "source": "/(.*\\.mjs)",
+      "headers": [
+        { "key": "Content-Type", "value": "application/javascript; charset=utf-8" },
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/(.*\\.js)",
+      "headers": [
+        { "key": "Content-Type", "value": "application/javascript; charset=utf-8" },
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
       ]
     }
   ]
