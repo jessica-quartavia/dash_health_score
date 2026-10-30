@@ -11,7 +11,6 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
 </head>
 <body>
-  <div id="authOverlay" class="auth-overlay" hidden aria-hidden="true"></div>
   <div class="shell" id="shell">
     <div class="backdrop" id="backdrop" hidden></div>
     <aside class="sidebar" id="sidebar">
@@ -111,31 +110,42 @@
     </div>
   </div>
   <div id="appToast" class="app-toast" role="status" aria-live="polite" hidden></div>
-  <dialog id="authModal" class="auth-modal" aria-labelledby="authModalTitle" aria-describedby="authModalDesc" aria-modal="true">
-    <div class="auth-modal-panel">
-      <div class="auth-modal-brand" aria-hidden="true">
-        <span class="mark auth-modal-mark">HA</span>
+  <div
+    id="authGateLayer"
+    class="auth-gate-layer"
+    hidden
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="authModalTitle"
+    aria-describedby="authModalDesc"
+  >
+    <div class="auth-gate-scrim" aria-hidden="true"></div>
+    <div class="auth-gate-center">
+      <div class="auth-modal-panel" id="authModalPanel" tabindex="-1">
+        <div class="auth-modal-brand" aria-hidden="true">
+          <span class="mark auth-modal-mark">HA</span>
+        </div>
+        <p class="auth-modal-eyebrow">
+          <span class="auth-modal-shield" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </span>
+          Acesso exclusivo para colaboradores QuartaVia
+        </p>
+        <h2 class="auth-modal-title" id="authModalTitle">Bem-vindo ao Health Analytics</h2>
+        <p class="auth-modal-sub" id="authModalDesc">Plataforma de inteligência e acompanhamento da carteira de clientes</p>
+        <p class="auth-modal-status" id="authGateMessage" role="status">Utilize sua conta Google corporativa para continuar.</p>
+        <div class="auth-modal-alert hidden" id="authModalAlert" role="alert"></div>
+        <button type="button" class="btn btn-google btn-lg auth-modal-btn" id="btnAuthLogin">
+          <span class="btn-google-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303C33.654 32.657 29.083 36 24 36c-5.522 0-10-4.478-10-10s4.478-10 10-10c2.485 0 4.746.91 6.486 2.414l6.012-6.012C33.891 9.626 29.11 8 24 8 12.954 8 4 16.954 4 28s8.954 20 20 20 20-8.954 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 16.108 18.961 13 24 13c2.485 0 4.746.91 6.486 2.414l6.012-6.012C33.891 9.626 29.11 8 24 8 16.318 8 9.656 13.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 48c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.048 0-9.376-3.304-10.852-7.887l-6.52 5.025C9.505 43.556 16.227 48 24 48z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 28c0-1.341-.138-2.65-.389-3.917z"/></svg>
+          </span>
+          <span class="btn-google-label">Entrar com Google</span>
+          <span class="btn-google-spinner" hidden aria-hidden="true"></span>
+        </button>
+        <p class="auth-modal-foot">Utilize sua conta corporativa <strong>@quartavia.com.br</strong></p>
       </div>
-      <p class="auth-modal-eyebrow">
-        <span class="auth-modal-shield" aria-hidden="true">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        </span>
-        Acesso exclusivo para colaboradores QuartaVia
-      </p>
-      <h2 class="auth-modal-title" id="authModalTitle">Bem-vindo ao Health Analytics</h2>
-      <p class="auth-modal-sub" id="authModalDesc">Plataforma de inteligência e acompanhamento da carteira de clientes</p>
-      <p class="auth-modal-status" id="authGateMessage" role="status">Utilize sua conta Google corporativa para continuar.</p>
-      <div class="auth-modal-alert hidden" id="authModalAlert" role="alert"></div>
-      <button type="button" class="btn btn-google btn-lg auth-modal-btn" id="btnAuthLogin">
-        <span class="btn-google-icon" aria-hidden="true">
-          <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303C33.654 32.657 29.083 36 24 36c-5.522 0-10-4.478-10-10s4.478-10 10-10c2.485 0 4.746.91 6.486 2.414l6.012-6.012C33.891 9.626 29.11 8 24 8 12.954 8 4 16.954 4 28s8.954 20 20 20 20-8.954 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 16.108 18.961 13 24 13c2.485 0 4.746.91 6.486 2.414l6.012-6.012C33.891 9.626 29.11 8 24 8 16.318 8 9.656 13.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 48c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.048 0-9.376-3.304-10.852-7.887l-6.52 5.025C9.505 43.556 16.227 48 24 48z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 28c0-1.341-.138-2.65-.389-3.917z"/></svg>
-        </span>
-        <span class="btn-google-label">Entrar com Google</span>
-        <span class="btn-google-spinner" hidden aria-hidden="true"></span>
-      </button>
-      <p class="auth-modal-foot">Utilize sua conta corporativa <strong>@quartavia.com.br</strong></p>
     </div>
-  </dialog>
+  </div>
   <dialog id="detailDialog" class="client-drawer"></dialog>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
@@ -154,23 +164,13 @@
       } catch (e) {
         showGate = true;
       }
+      document.documentElement.classList.add("auth-booting");
+      document.body.classList.add("auth-scroll-lock");
       if (!showGate) return;
-      document.documentElement.classList.add("auth-pending");
-      var shell = document.getElementById("shell");
-      if (shell) shell.classList.add("auth-locked");
-      var overlay = document.getElementById("authOverlay");
-      if (overlay) {
-        overlay.hidden = false;
-        overlay.setAttribute("aria-hidden", "false");
-      }
-      var modal = document.getElementById("authModal");
-      if (modal && typeof modal.showModal === "function") {
-        try {
-          modal.showModal();
-        } catch (e) {
-          /* app.js reabre */
-        }
-      }
+      var layer = document.getElementById("authGateLayer");
+      if (layer) layer.hidden = false;
+      var status = document.getElementById("authGateMessage");
+      if (status) status.textContent = "Verificando acesso corporativo…";
     })();
   </script>
   <script type="module" src="/app.js?v=__HA_BUILD_ID__"></script>

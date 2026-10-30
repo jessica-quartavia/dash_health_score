@@ -6,42 +6,38 @@ import test from "node:test";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-test("index — modal corporativo (dialog) em vez de card isolado no main", () => {
+test("index — layer fixo no body (sem dialog) e fora do shell", () => {
   const html = readFileSync(join(ROOT, "public", "index.html"), "utf8");
-  assert.match(html, /id="authModal"/);
-  assert.match(html, /id="authOverlay"/);
-  assert.match(html, /primeCorporateAuthModal/);
+  const shellEnd = html.indexOf("</div>", html.indexOf('id="shell"'));
+  const layerIdx = html.indexOf('id="authGateLayer"');
+  assert.ok(layerIdx > shellEnd, "authGateLayer deve ficar após #shell");
+  assert.match(html, /auth-gate-scrim/);
+  assert.match(html, /auth-gate-center/);
+  assert.match(html, /role="dialog"/);
   assert.match(html, /Bem-vindo ao Health Analytics/);
-  assert.match(html, /Entrar com Google/);
-  assert.match(html, /conta corporativa/);
-  assert.match(html, /aria-modal="true"/);
+  assert.doesNotMatch(html, /id="authModal"/);
+  assert.doesNotMatch(html, /id="authOverlay"/);
   assert.doesNotMatch(html, /Acesso corporativo/);
-  assert.doesNotMatch(html, /id="authGate"/);
 });
 
-test("styles — modal, overlay e estado auth-locked", () => {
+test("styles — overlay viewport, blur no scrim, modal centralizado", () => {
   const css = readFileSync(join(ROOT, "public", "styles.css"), "utf8");
-  assert.match(css, /\.auth-overlay/);
-  assert.match(css, /html\.auth-pending \.shell/);
-  assert.match(css, /\.shell\.auth-locked/);
-  assert.match(css, /prefers-reduced-motion/);
-  assert.match(css, /460px/);
-  assert.match(css, /\.btn-google/);
+  assert.match(css, /\.auth-gate-layer[\s\S]*position:\s*fixed/);
+  assert.match(css, /\.auth-gate-layer[\s\S]*place-items:\s*center/);
+  assert.match(css, /\.auth-gate-scrim[\s\S]*backdrop-filter:\s*blur\(8px\)/);
+  assert.match(css, /html\.auth-booting #view/);
+  assert.match(css, /auth-scroll-lock/);
+  assert.doesNotMatch(css, /\.shell\.auth-locked[\s\S]*filter:\s*blur/);
 });
 
-test("app.js — gate usa modal, bloqueia Escape e mensagens por código", () => {
+test("app.js — gate via authGateLayer, bloqueia APIs e Escape", () => {
   const app = readFileSync(join(ROOT, "public", "app.js"), "utf8");
-  assert.match(app, /getElementById\("authModal"\)/);
-  assert.match(app, /showModal\(\)/);
-  assert.match(app, /setAuthLocked/);
+  assert.match(app, /getElementById\("authGateLayer"\)/);
+  assert.match(app, /authUIRequired/);
   assert.match(app, /clearProtectedUiState/);
-  assert.match(app, /primeAuthGateIfNeeded/);
-  assert.match(app, /setAttribute\("inert"/);
-  assert.match(app, /formatAuthUserMessage/);
-  assert.match(app, /AUTH_DOMAIN/);
-  assert.match(app, /event\.preventDefault\(\)/);
-  assert.match(app, /setAuthLoginLoading/);
-  assert.doesNotMatch(app, /getElementById\("authGate"\)/);
+  assert.match(app, /if \(authUIRequired\) return/);
+  assert.match(app, /finishAuthBooting/);
+  assert.doesNotMatch(app, /showModal\(\)/);
 });
 
 test("app.js — erros de auth na API não expõem fatal view com dados", () => {

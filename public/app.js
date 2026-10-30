@@ -2738,6 +2738,7 @@ function renderFatalView(message, { retry = true } = {}) {
 }
 
 function safeRender() {
+  if (authUIRequired) return;
   const payload = state.payload;
   if (!payload) {
     el.view.innerHTML = skeleton();
@@ -2828,6 +2829,7 @@ function applyOptions(payload) {
 }
 
 async function loadData({ refresh = false } = {}) {
+  if (authUIRequired) return;
   const requestId = ++state.requestId;
   state.loadStatus = "loading";
   state.loadError = null;
@@ -2975,18 +2977,25 @@ function setAuthLoginLoading(loading) {
   if (spinner) spinner.hidden = !loading;
 }
 
-function setAuthOverlayVisible(visible) {
-  const overlay = document.getElementById("authOverlay");
-  if (!overlay) return;
-  overlay.hidden = !visible;
-  overlay.setAttribute("aria-hidden", visible ? "false" : "true");
+function getAuthGateLayer() {
+  return document.getElementById("authGateLayer");
+}
+
+function finishAuthBooting() {
+  document.documentElement.classList.remove("auth-booting");
+}
+
+function setAuthScrollLock(locked) {
+  document.body.classList.toggle("auth-scroll-lock", locked);
 }
 
 function setAuthLocked(locked) {
   authUIRequired = locked;
   document.documentElement.classList.toggle("auth-pending", locked);
   el.shell?.classList.toggle("auth-locked", locked);
-  setAuthOverlayVisible(locked);
+  setAuthScrollLock(locked);
+  const layer = getAuthGateLayer();
+  if (layer) layer.hidden = !locked;
   const shell = document.getElementById("shell");
   if (locked) {
     shell?.setAttribute("inert", "");
@@ -3023,16 +3032,13 @@ function clearProtectedUiState() {
 function bindAuthModal() {
   if (authModalBound) return;
   authModalBound = true;
-  const modal = document.getElementById("authModal");
-  if (!modal) return;
-  modal.addEventListener("cancel", (event) => {
-    if (authUIRequired) event.preventDefault();
+  document.addEventListener("keydown", (event) => {
+    if (!authUIRequired) return;
+    if (event.key === "Escape") event.preventDefault();
   });
-  modal.addEventListener("close", () => {
-    if (authUIRequired) window.requestAnimationFrame(() => modal.showModal());
-  });
-  modal.addEventListener("click", (event) => {
-    if (event.target === modal && authUIRequired) event.preventDefault();
+  getAuthGateLayer()?.addEventListener("click", (event) => {
+    if (!authUIRequired) return;
+    if (event.target.classList.contains("auth-gate-scrim")) event.preventDefault();
   });
 }
 
@@ -3043,7 +3049,6 @@ function primeAuthGateIfNeeded() {
 
 function showAuthGate(message, { code, statusLine } = {}) {
   bindAuthModal();
-  const modal = document.getElementById("authModal");
   const msg = document.getElementById("authGateMessage");
   const friendly = formatAuthUserMessage(message, code);
   if (code === "AUTH_DOMAIN" || code === "AUTH_INVALID" || code === "AUTH_REQUIRED") {
@@ -3054,10 +3059,11 @@ function showAuthGate(message, { code, statusLine } = {}) {
   const showAlert = code === "AUTH_DOMAIN" || code === "AUTH_INVALID" || Boolean(message && code !== "AUTH_REQUIRED");
   setAuthModalAlert(showAlert ? friendly : "");
   setAuthLocked(true);
-  el.meta.textContent = "Login necessário";
+  if (el.meta) el.meta.textContent = "Login necessário";
   setAuthLoginLoading(false);
-  if (modal && !modal.open) modal.showModal();
-  window.requestAnimationFrame(() => document.getElementById("btnAuthLogin")?.focus());
+  window.requestAnimationFrame(() => {
+    document.getElementById("btnAuthLogin")?.focus();
+  });
 }
 
 function hideAuthGate() {
@@ -3065,8 +3071,8 @@ function hideAuthGate() {
   setAuthLocked(false);
   setAuthModalAlert("");
   setAuthLoginLoading(false);
-  const modal = document.getElementById("authModal");
-  if (modal?.open) modal.close();
+  finishAuthBooting();
+  setAuthScrollLock(false);
 }
 
 function wireAuthLoginButton() {
@@ -3265,6 +3271,7 @@ async function probeApiOnBoot() {
 }
 
 async function startDashboardLoad({ refresh = false } = {}) {
+  if (authUIRequired) return;
   bootDiag("startDashboardLoad");
   armBootWatchdog();
   const probe = await probeApiOnBoot();
