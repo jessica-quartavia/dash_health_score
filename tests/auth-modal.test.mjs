@@ -30,12 +30,13 @@ test("styles — overlay viewport, blur no scrim, modal centralizado", () => {
   assert.doesNotMatch(css, /\.shell\.auth-locked[\s\S]*filter:\s*blur/);
 });
 
-test("app.js — gate via authGateLayer, bloqueia APIs e Escape", () => {
+test("app.js — máquina de estados e gate global", () => {
   const app = readFileSync(join(ROOT, "public", "app.js"), "utf8");
-  assert.match(app, /getElementById\("authGateLayer"\)/);
-  assert.match(app, /authUIRequired/);
+  assert.match(app, /setAuthPhase/);
+  assert.match(app, /AuthPhase\.AUTHORIZED/);
+  assert.match(app, /protectedFetchAllowed/);
+  assert.match(app, /protectedFetch/);
   assert.match(app, /clearProtectedUiState/);
-  assert.match(app, /if \(authUIRequired\) return/);
   assert.match(app, /finishAuthBooting/);
   assert.doesNotMatch(app, /showModal\(\)/);
 });

@@ -16,5 +16,5 @@ test("app.js — research-panorama trata 401 com modal global", () => {
   const app = readFileSync(join(ROOT, "public", "app.js"), "utf8");
   assert.match(app, /reactToProtectedApiAuthFailure/);
   assert.match(app, /ensureResearchPanorama[\s\S]*authHeaders/);
-  assert.match(app, /mustBlockUnauthenticatedAccess/);
+  assert.match(app, /protectedFetch/);
 });

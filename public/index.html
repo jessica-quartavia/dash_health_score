@@ -167,11 +167,12 @@
       }
       document.documentElement.classList.add("auth-booting");
       document.body.classList.add("auth-scroll-lock");
-      if (!showGate) return;
       var layer = document.getElementById("authGateLayer");
       if (layer) layer.hidden = false;
       var status = document.getElementById("authGateMessage");
       if (status) status.textContent = "Verificando acesso corporativo…";
+      var loginBtn = document.getElementById("btnAuthLogin");
+      if (loginBtn) loginBtn.disabled = true;
     })();
   </script>
   <script type="module" src="/app.js?v=__HA_BUILD_ID__"></script>

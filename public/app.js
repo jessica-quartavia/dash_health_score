@@ -61,6 +61,14 @@ import {
   readStoredSession,
   isTransientAuthErrorCode,
 } from "./session-auth.mjs";
+import {
+  AuthPhase,
+  canFetchProtectedData,
+  phaseFromBootSession,
+  phaseFromApiAuthCode,
+  phaseRequiresAuthGate,
+  statusLineForPhase,
+} from "/lib/frontend/corporate-auth-phase.mjs";
 
 const VIEWS = {
   overview: ["Principal", "Visão Geral"],
@@ -198,8 +206,28 @@ const HA_BOOT_DIAG =
   || localStorage.getItem("ha:bootdiag") === "1";
 
 let bootWatchdogTimer = null;
-let authUIRequired = false;
+let authPhase = AuthPhase.CHECKING;
 let authModalBound = false;
+
+function protectedFetchAllowed() {
+  return canFetchProtectedData(authPhase, {
+    corporateAuthRequired: state.corporateAuthRequired !== false,
+  });
+}
+
+async function protectedFetch(url, init = {}) {
+  if (!protectedFetchAllowed()) return null;
+  const response = await fetch(url, {
+    ...init,
+    headers: authHeaders({ Accept: "application/json", ...(init.headers || {}) }),
+  });
+  if (response.status === 401) {
+    const body = await response.json().catch(() => ({ code: "AUTH_REQUIRED" }));
+    reactToProtectedApiAuthFailure(body);
+    return null;
+  }
+  return response;
+}
 
 function bootDiag(stage, detail = {}) {
   if (!HA_BOOT_DIAG) return;
@@ -1001,9 +1029,19 @@ async function fetchMonitoringSummary() {
   if (state.monitoringLoaded && state.monitoringSummary && state.monitoringCacheKey === cacheKey) {
     return state.monitoringSummary;
   }
-  const response = await fetch(`/api/monitoring-summary?${params.toString()}`);
+  const response = await protectedFetch(`/api/monitoring-summary?${params.toString()}`);
+  if (!response) {
+    const err = new Error("Autenticação necessária para qualidade dos dados.");
+    err.code = "AUTH_REQUIRED";
+    throw err;
+  }
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
+    if (response.status === 403) {
+      const err = new Error(body.error || "Sem permissão para este recurso.");
+      err.code = body.code || "FORBIDDEN";
+      throw err;
+    }
     const err = new Error(body.error || "Falha ao carregar qualidade.");
     err.code = body.code;
     throw err;
@@ -1071,8 +1109,16 @@ function paintQualityDiagnosticsTable(root, diagnostics) {
 }
 
 async function loadMonitoringHistory() {
+  if (!protectedFetchAllowed()) {
+    state.monitoringHistory = { ok: false, error: "Faça login corporativo para ver o histórico Business Data." };
+    return state.monitoringHistory;
+  }
   try {
-    const res = await fetch("/api/monitoring-history");
+    const res = await protectedFetch("/api/monitoring-history");
+    if (!res) {
+      state.monitoringHistory = { ok: false, error: "Sessão ausente. Faça login com Google corporativo." };
+      return state.monitoringHistory;
+    }
     const body = await res.json().catch(() => ({}));
     state.monitoringHistory = res.ok
       ? body
@@ -2024,7 +2070,7 @@ function researchPanoramaUi() {
 }
 
 async function ensurePredictiveLabPack(force = false) {
-  if (authUIRequired || mustBlockUnauthenticatedAccess()) return null;
+  if (!protectedFetchAllowed()) return null;
   if (state.predictiveLabPackLoaded && !force && state.predictiveLabPack?.referenceModel) {
     return state.predictiveLabPack;
   }
@@ -2054,15 +2100,14 @@ async function ensurePredictiveLabPack(force = false) {
 }
 
 async function ensureResearchPanorama(force = false) {
-  if (authUIRequired || mustBlockUnauthenticatedAccess()) {
-    return null;
-  }
+  if (!protectedFetchAllowed()) return null;
   const q = "frozen_descriptive_all";
   if (!force && state.researchPanorama && !state.researchPanorama.error && state.researchPanoramaQuery === q) {
     return state.researchPanorama;
   }
   try {
-    const res = await fetch("/api/research-panorama", { headers: authHeaders({ Accept: "application/json" }) });
+    const res = await protectedFetch("/api/research-panorama");
+    if (!res) return null;
     const contentType = res.headers.get("content-type") || "";
     const raw = await res.text();
     let body = null;
@@ -2115,16 +2160,13 @@ async function ensureResearchPanorama(force = false) {
 }
 
 async function ensureResearchBundle(force = false) {
-  if (authUIRequired || mustBlockUnauthenticatedAccess()) return null;
+  if (!protectedFetchAllowed()) return null;
   if (state.researchBundleLoaded && !force) return state.researchBundle;
   try {
-    const response = await fetch("/api/research-bundle", { headers: authHeaders({ Accept: "application/json" }) });
-    if (response.status === 401) {
-      const body = await response.json().catch(() => ({ code: "AUTH_REQUIRED" }));
-      if (reactToProtectedApiAuthFailure(body)) {
-        state.researchBundleLoaded = false;
-        return null;
-      }
+    const response = await protectedFetch("/api/research-bundle");
+    if (!response) {
+      state.researchBundleLoaded = false;
+      return null;
     }
     state.researchBundle = response.ok ? await response.json() : null;
     const data = state.researchBundle?.data || {};
@@ -2385,7 +2427,8 @@ async function ensureEvolutionSummary() {
   const ids = rows.map((r) => r.clientId);
   if (ids.length && ids.length <= 4000) params.set("clientIds", ids.join(","));
   try {
-    const res = await fetch(`/api/portfolio-evolution-summary?${params.toString()}`);
+    const res = await protectedFetch(`/api/portfolio-evolution-summary?${params.toString()}`);
+    if (!res) return null;
     const body = await res.json().catch(() => ({}));
     state.evolutionSummary = body;
     state.evolutionSummaryKey = key;
@@ -2694,7 +2737,8 @@ function renderBase(payload) {
 }
 
 async function fetchClientHistoryPanel(panel, clientId) {
-  const snapRes = await fetch(`/api/client-snapshot-history?clientId=${encodeURIComponent(clientId)}`);
+  const snapRes = await protectedFetch(`/api/client-snapshot-history?clientId=${encodeURIComponent(clientId)}`);
+  if (!snapRes) return null;
   const snapHist = snapRes.ok ? await snapRes.json() : null;
   if (snapHist?.ok && snapHist.points?.length) {
     const histRows = snapHist.points
@@ -2710,7 +2754,8 @@ async function fetchClientHistoryPanel(panel, clientId) {
     );
     return;
   }
-  const res = await fetch(`/api/client-hs-history?clientId=${encodeURIComponent(clientId)}`);
+  const res = await protectedFetch(`/api/client-hs-history?clientId=${encodeURIComponent(clientId)}`);
+  if (!res) return null;
   const hist = res.ok ? await res.json() : null;
   if (!hist?.available || !hist.points?.length) {
     panel.innerHTML = `<p class="note">${escapeHtml(snapHist?.error || hist?.nota || hist?.reason || "Sem histórico comparável — aguardando snapshots ou export de pesquisa.")}</p>`;
@@ -2763,7 +2808,7 @@ function renderFatalView(message, { retry = true } = {}) {
 }
 
 function safeRender() {
-  if (authUIRequired) return;
+  if (!protectedFetchAllowed()) return;
   const payload = state.payload;
   if (!payload) {
     el.view.innerHTML = skeleton();
@@ -2854,7 +2899,7 @@ function applyOptions(payload) {
 }
 
 async function loadData({ refresh = false } = {}) {
-  if (authUIRequired) return;
+  if (!protectedFetchAllowed()) return;
   const requestId = ++state.requestId;
   state.loadStatus = "loading";
   state.loadError = null;
@@ -2970,19 +3015,13 @@ function reactToProtectedApiAuthFailure(body, { bumpRequest = true } = {}) {
   if (!isAuthErrorCode(code)) return false;
   if (isTransientAuthErrorCode(code)) {
     setAuthModalAlert(body?.error || body?.message || "Não foi possível validar a sessão. Tente novamente.");
-    if (!authUIRequired) {
-      showAuthGate(body?.error || body?.message, {
-        code,
-        statusLine: authStatusLineForCode(code),
-      });
-    }
     return true;
   }
   if (bumpRequest) state.requestId += 1;
-  showAuthGate(body?.error || body?.message, {
-    code,
-    statusLine: authStatusLineForCode(code),
-  });
+  signOutCorporate();
+  clearProtectedUiState();
+  const phase = phaseFromApiAuthCode(code) || AuthPhase.UNAUTHENTICATED;
+  setAuthPhase(phase, { message: body?.error || body?.message, code });
   return true;
 }
 
@@ -3034,7 +3073,6 @@ function setAuthScrollLock(locked) {
 }
 
 function setAuthLocked(locked) {
-  authUIRequired = locked;
   document.documentElement.classList.toggle("auth-pending", locked);
   el.shell?.classList.toggle("auth-locked", locked);
   setAuthScrollLock(locked);
@@ -3077,66 +3115,76 @@ function bindAuthModal() {
   if (authModalBound) return;
   authModalBound = true;
   document.addEventListener("keydown", (event) => {
-    if (!authUIRequired) return;
+    if (!phaseRequiresAuthGate(authPhase) || state.corporateAuthRequired === false) return;
     if (event.key === "Escape") event.preventDefault();
   });
   getAuthGateLayer()?.addEventListener("click", (event) => {
-    if (!authUIRequired) return;
+    if (!phaseRequiresAuthGate(authPhase) || state.corporateAuthRequired === false) return;
     if (event.target.classList.contains("auth-gate-scrim")) event.preventDefault();
   });
 }
 
-function primeAuthGateIfNeeded() {
-  if (readStoredSession()) return;
-  showAuthGate(null, { code: "AUTH_REQUIRED", statusLine: "Verificando acesso corporativo…", keepSession: true });
-}
+function setAuthPhase(nextPhase, { message, code, keepSession = false } = {}) {
+  authPhase = nextPhase;
+  const policyOpen = state.corporateAuthRequired === false;
+  const showGate = !policyOpen && phaseRequiresAuthGate(nextPhase);
 
-function mustBlockUnauthenticatedAccess() {
-  if (state.corporateAuthRequired === false) return false;
-  return authUIRequired || !readStoredSession();
-}
+  if (!showGate) {
+    setAuthLocked(false);
+    setAuthModalAlert("");
+    setAuthLoginLoading(false);
+    finishAuthBooting();
+    setAuthScrollLock(false);
+    syncSignOutVisibility();
+    return;
+  }
 
-function showAuthGate(message, { code, statusLine, keepSession = false } = {}) {
   bindAuthModal();
-  const msg = document.getElementById("authGateMessage");
-  const friendly = formatAuthUserMessage(message, code);
   if (
     !keepSession
-    && (code === "AUTH_DOMAIN" || code === "AUTH_INVALID" || code === "AUTH_REQUIRED")
+    && nextPhase !== AuthPhase.CHECKING
     && !isTransientAuthErrorCode(code)
+    && (nextPhase === AuthPhase.UNAUTHENTICATED || nextPhase === AuthPhase.UNAUTHORIZED_DOMAIN)
   ) {
     signOutCorporate();
   }
-  clearProtectedUiState();
-  if (msg) msg.textContent = statusLine || "Utilize sua conta Google corporativa para continuar.";
-  const showAlert = code === "AUTH_DOMAIN" || code === "AUTH_INVALID" || Boolean(message && code !== "AUTH_REQUIRED");
-  setAuthModalAlert(showAlert ? friendly : "");
+  if (nextPhase !== AuthPhase.CHECKING) clearProtectedUiState();
+
+  const msgEl = document.getElementById("authGateMessage");
+  if (msgEl) msgEl.textContent = statusLineForPhase(nextPhase);
+
+  const alertCode =
+    nextPhase === AuthPhase.UNAUTHORIZED_DOMAIN
+      ? "AUTH_DOMAIN"
+      : nextPhase === AuthPhase.UNAUTHENTICATED
+        ? code || "AUTH_REQUIRED"
+        : null;
+  const showAlert =
+    nextPhase === AuthPhase.UNAUTHORIZED_DOMAIN
+    || nextPhase === AuthPhase.UNAUTHENTICATED
+    || Boolean(message && nextPhase !== AuthPhase.CHECKING);
+  setAuthModalAlert(showAlert ? formatAuthUserMessage(message, alertCode) : "");
+
   setAuthLocked(true);
-  if (el.meta) el.meta.textContent = "Login necessário";
+  const loginBtn = document.getElementById("btnAuthLogin");
+  if (loginBtn) loginBtn.disabled = nextPhase === AuthPhase.CHECKING;
+  if (el.meta) {
+    el.meta.textContent = nextPhase === AuthPhase.CHECKING ? "Verificando acesso…" : "Login necessário";
+  }
   setAuthLoginLoading(false);
   syncSignOutVisibility();
   window.requestAnimationFrame(() => {
-    document.getElementById("btnAuthLogin")?.focus();
+    if (nextPhase !== AuthPhase.CHECKING) loginBtn?.focus();
   });
-}
-
-function hideAuthGate() {
-  authUIRequired = false;
-  setAuthLocked(false);
-  setAuthModalAlert("");
-  setAuthLoginLoading(false);
-  finishAuthBooting();
-  setAuthScrollLock(false);
-  syncSignOutVisibility();
 }
 
 function syncSignOutVisibility() {
   const btn = document.getElementById("btnSignOut");
   if (!btn) return;
-  if (authUIRequired || mustBlockUnauthenticatedAccess()) {
-    btn.setAttribute("hidden", "");
-  } else if (state.corporateAuthRequired !== false) {
+  if (authPhase === AuthPhase.AUTHORIZED && state.corporateAuthRequired !== false) {
     btn.removeAttribute("hidden");
+  } else {
+    btn.setAttribute("hidden", "");
   }
 }
 
@@ -3197,12 +3245,8 @@ function downloadAnalyticalCsv(payload) {
 function bind() {
   document.querySelectorAll(".nav-icon").forEach((node) => { node.innerHTML = ICONS[node.dataset.icon] || ""; });
   document.querySelectorAll(".nav-btn").forEach((button) => button.addEventListener("click", () => {
-    if (mustBlockUnauthenticatedAccess()) {
-      showAuthGate(null, {
-        code: "AUTH_REQUIRED",
-        statusLine: authStatusLineForCode("AUTH_REQUIRED"),
-        keepSession: true,
-      });
+    if (!protectedFetchAllowed()) {
+      setAuthPhase(AuthPhase.UNAUTHENTICATED, { keepSession: true });
       return;
     }
     const next = button.dataset.view;
@@ -3230,9 +3274,8 @@ function bind() {
     await signOutCorporate();
     state.corporateAuthRequired = true;
     clearProtectedUiState();
-    showAuthGate(null, {
-      code: "AUTH_REQUIRED",
-      statusLine: "Você saiu. Entre novamente com Google corporativo.",
+    setAuthPhase(AuthPhase.UNAUTHENTICATED, {
+      message: "Você saiu. Entre novamente com Google corporativo.",
       keepSession: true,
     });
   });
@@ -3354,7 +3397,7 @@ async function probeApiOnBoot() {
 }
 
 async function startDashboardLoad({ refresh = false } = {}) {
-  if (authUIRequired) return;
+  if (!protectedFetchAllowed()) return;
   bootDiag("startDashboardLoad");
   armBootWatchdog();
   const probe = await probeApiOnBoot();
@@ -3368,7 +3411,6 @@ async function startDashboardLoad({ refresh = false } = {}) {
     disarmBootWatchdog();
     return;
   }
-  hideAuthGate();
   ensureResearchBundle();
   refreshSystemStatus();
   loadData({ refresh });
@@ -3382,15 +3424,15 @@ async function boot() {
   bootDiag("boot:start", { build: document.querySelector('script[type="module"]')?.src || null });
   bindAuthModal();
   wireAuthLoginButton();
-  primeAuthGateIfNeeded();
-  el.meta.textContent = "Verificando acesso…";
+  state.corporateAuthRequired = true;
+  setAuthPhase(AuthPhase.CHECKING);
   try {
     const session = await ensureCorporateSession({
       onStatus: (line) => {
-        if (authUIRequired) {
+        if (phaseRequiresAuthGate(authPhase)) {
           const status = document.getElementById("authGateMessage");
           if (status) status.textContent = line;
-        } else {
+        } else if (el.meta) {
           el.meta.textContent = line;
         }
       },
@@ -3400,24 +3442,26 @@ async function boot() {
       required: session.required,
       hasSession: Boolean(session.session),
       corporateAuthRequired: state.corporateAuthRequired,
+      authPhase,
     });
-    if (!session.required) {
-      hideAuthGate();
-    } else if (!session.session) {
-      const err = session.authError;
-      showAuthGate(err?.error || null, {
-        code: err?.code || "AUTH_REQUIRED",
-        statusLine: authStatusLineForCode(err?.code || "AUTH_REQUIRED"),
-        keepSession: isTransientAuthErrorCode(err?.code),
+    const nextPhase = phaseFromBootSession({
+      corporateAuthRequired: state.corporateAuthRequired,
+      session: session.session,
+      authError: session.authError,
+    });
+    if (nextPhase !== AuthPhase.AUTHORIZED) {
+      setAuthPhase(nextPhase, {
+        message: session.authError?.error,
+        code: session.authError?.code,
+        keepSession: isTransientAuthErrorCode(session.authError?.code),
       });
       return;
-    } else {
-      hideAuthGate();
     }
+    setAuthPhase(AuthPhase.AUTHORIZED);
   } catch (error) {
-    showAuthGate(error.message || "Falha ao verificar autenticação.", {
+    setAuthPhase(AuthPhase.UNAUTHENTICATED, {
+      message: error.message || "Falha ao verificar autenticação.",
       code: "AUTH_INVALID",
-      statusLine: "Erro ao verificar autenticação",
     });
     return;
   }
