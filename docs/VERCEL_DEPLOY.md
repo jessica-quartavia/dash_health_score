@@ -1,30 +1,30 @@
 # Deploy na Vercel — Health Analytics
 
-## Modo de publicação (Build Output API v3)
+## Modo único: deploy tradicional (zero-config + outputDirectory)
 
-O build (`npm run build`) gera:
+| Camada | Como publica |
+|--------|----------------|
+| Frontend | `npm run build` → **`dist/`** (`vercel.json` → `"outputDirectory": "dist"`) |
+| API | **`api/[...path].js`** + `functions.includeFiles` (string glob) |
+| BOA v3 | **Não usar** — não gerar `.vercel/output` no build |
 
-| Artefato | Função |
-|----------|--------|
-| `dist/` | Cópia local / testes (não é `outputDirectory` no painel) |
-| `.vercel/output/static/` | Frontend (HTML, JS, CSS, `lib` do browser) |
-| `.vercel/output/functions/api/[...path].func/` | Serverless — mesmo `dispatchHttpApi` do dev-server |
-| `.vercel/output/config.json` | `{ "version": 3, "routes": [...] }` — SPA + filesystem |
+### Por que aparecia `STATIC_BUILD_NO_OUT_DIR` pedindo `public`?
 
-**`vercel.json` não define `outputDirectory` nem `functions`.** Isso evita:
+Com **`outputDirectory` ausente** no `vercel.json`, preset **Other** + pasta **`public/`** no repo fazem o static-build validar saída em **`public`**, enquanto o script grava em **`dist`**.
 
-- `STATIC_BUILD_NO_OUT_DIR` (validação de `dist/` no static-build apesar de `dist` existir).
-- Deploy estático-only (BOA v3 só com `static/` sem `functions/`).
+Gerar `.vercel/output` ao mesmo tempo **não substitui** essa validação se o builder não entrar 100% no fluxo prebuilt — daí mistura de modos.
 
-## Painel Vercel
+**Correção:** uma abordagem só — `outputDirectory: "dist"` explícito e **sem** `.vercel/output` no build.
 
-| Campo | Valor |
-|-------|--------|
-| Framework Preset | **Other** |
-| Root Directory | pasta com `package.json` |
-| Build Command | vazio ou `npm run build` |
-| **Output Directory** | **vazio** (não usar `dist`) |
-| Node.js | 20.x |
+## Painel Vercel (conferir manualmente)
+
+| Campo | Valor correto | Valor que quebra |
+|-------|---------------|------------------|
+| Framework | **Other** | — |
+| Root Directory | pasta do `package.json` | pasta pai do monorepo |
+| Build Command | vazio ou `npm run build` | — |
+| **Output Directory** | **vazio** (herda `dist`) ou **`dist`** | **`public`** ← causa o erro atual |
+| Node.js | 20.x | — |
 
 ## Variáveis (Production)
 
@@ -32,13 +32,16 @@ O build (`npm run build`) gera:
 - `DATA_SUPABASE_SERVICE_ROLE_KEY`
 - (Opcional) `BUSINESS_SUPABASE_URL`, `BUSINESS_SUPABASE_SERVICE_ROLE_KEY`
 
-## Verificação pós-deploy
+## Pós-deploy
 
 ```text
 GET /api/health
-GET /api/config-status
-GET /api/health-score?cluster=ativos
 GET /api/predictive-lab-reference
+GET /api/health-score?cluster=ativos
 ```
 
-Todos devem retornar JSON (nunca HTML do SPA).
+JSON (`application/json`), nunca HTML do SPA.
+
+## Alternativa BOA (só se tradicional falhar de forma comprovada)
+
+Usar **somente** `.vercel/output` + `vercel deploy --prebuilt`, **sem** `outputDirectory` no `vercel.json` nem no painel. Não misturar com este modo tradicional.
