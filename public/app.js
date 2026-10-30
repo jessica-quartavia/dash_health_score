@@ -57,6 +57,7 @@ import {
   ensureCorporateSession,
   isAuthErrorCode,
   signInWithGoogleCorporate,
+  signOutCorporate,
 } from "./session-auth.mjs";
 
 const VIEWS = {
@@ -2839,11 +2840,17 @@ async function loadData({ refresh = false } = {}) {
       if (isAuthErrorCode(body.code)) {
         const msg = body.error || "Faça login com Google @quartavia.com.br.";
         disarmBootWatchdog();
-        showAuthGate(msg);
-        showError(msg);
+        showAuthGate(msg, {
+          code: body.code,
+          statusLine:
+            body.code === "AUTH_DOMAIN"
+              ? "Domínio não autorizado"
+              : body.code === "AUTH_INVALID"
+                ? "Sessão expirada"
+                : "Autenticação necessária",
+        });
         el.meta.textContent = "Login necessário";
         state.loadStatus = "auth_required";
-        renderFatalView(msg, { retry: true });
         return;
       }
       const hint =
@@ -2929,17 +2936,78 @@ function disarmBootWatchdog() {
   }
 }
 
-function showAuthGate(message) {
-  const gate = document.getElementById("authGate");
+function formatAuthUserMessage(message, code) {
+  if (code === "AUTH_DOMAIN") {
+    return "Somente contas @quartavia.com.br são permitidas. Entre com seu e-mail corporativo QuartaVia.";
+  }
+  if (code === "AUTH_INVALID") {
+    return "Sessão inválida ou expirada. Faça login novamente com Google.";
+  }
+  if (code === "AUTH_NOT_CONFIGURED") {
+    return message || "Login corporativo temporariamente indisponível. Tente mais tarde.";
+  }
+  return message || "Faça login com Google @quartavia.com.br para continuar.";
+}
+
+function setAuthModalAlert(text) {
+  const alert = document.getElementById("authModalAlert");
+  if (!alert) return;
+  if (!text) {
+    alert.textContent = "";
+    alert.classList.add("hidden");
+    return;
+  }
+  alert.textContent = text;
+  alert.classList.remove("hidden");
+}
+
+function setAuthLoginLoading(loading) {
+  const btn = document.getElementById("btnAuthLogin");
+  if (!btn) return;
+  btn.disabled = loading;
+  btn.classList.toggle("is-loading", loading);
+  btn.setAttribute("aria-busy", loading ? "true" : "false");
+  const spinner = btn.querySelector(".btn-google-spinner");
+  if (spinner) spinner.hidden = !loading;
+}
+
+function bindAuthModal() {
+  const modal = document.getElementById("authModal");
+  if (!modal) return;
+  modal.addEventListener("cancel", (event) => {
+    if (el.shell?.classList.contains("auth-locked")) event.preventDefault();
+  });
+}
+
+function showAuthGate(message, { code, statusLine } = {}) {
+  bindAuthModal();
+  const modal = document.getElementById("authModal");
   const msg = document.getElementById("authGateMessage");
-  if (msg && message) msg.textContent = message;
-  gate?.classList.remove("hidden");
+  const friendly = formatAuthUserMessage(message, code);
+  if (code === "AUTH_DOMAIN" || code === "AUTH_INVALID" || code === "AUTH_REQUIRED") {
+    signOutCorporate();
+  }
+  if (msg) msg.textContent = statusLine || "Utilize sua conta Google corporativa para continuar.";
+  const showAlert = code === "AUTH_DOMAIN" || code === "AUTH_INVALID" || Boolean(message && code !== "AUTH_REQUIRED");
+  setAuthModalAlert(showAlert ? friendly : "");
+  el.shell?.classList.add("auth-locked");
+  el.shell?.querySelector(".workspace")?.setAttribute("aria-hidden", "true");
   el.view.innerHTML = "";
   el.meta.textContent = "Login necessário";
+  setAuthLoginLoading(false);
+  if (modal && !modal.open) {
+    modal.showModal();
+    window.requestAnimationFrame(() => document.getElementById("btnAuthLogin")?.focus());
+  }
 }
 
 function hideAuthGate() {
-  document.getElementById("authGate")?.classList.add("hidden");
+  el.shell?.classList.remove("auth-locked");
+  el.shell?.querySelector(".workspace")?.removeAttribute("aria-hidden");
+  setAuthModalAlert("");
+  setAuthLoginLoading(false);
+  const modal = document.getElementById("authModal");
+  if (modal?.open) modal.close();
 }
 
 function scheduleLoad() {
@@ -3151,9 +3219,15 @@ async function boot() {
     return;
   }
   bootDiag("boot:start", { build: document.querySelector('script[type="module"]')?.src || null });
+  bindAuthModal();
+  el.meta.textContent = "Verificando acesso…";
   document.getElementById("btnAuthLogin")?.addEventListener("click", () => {
+    setAuthModalAlert("");
+    setAuthLoginLoading(true);
     signInWithGoogleCorporate().catch((error) => {
-      showError(error.message || "Falha ao iniciar login.");
+      setAuthLoginLoading(false);
+      setAuthModalAlert(error.message || "Não foi possível iniciar o login. Tente novamente.");
+      document.getElementById("btnAuthLogin")?.focus();
     });
   });
   try {
@@ -3164,7 +3238,7 @@ async function boot() {
     });
     bootDiag("auth", { required: session.required, hasSession: Boolean(session.session) });
     if (session.required && !session.session) {
-      showAuthGate("Entre com Google @quartavia.com.br para acessar dados de clientes.");
+      showAuthGate(null, { code: "AUTH_REQUIRED", statusLine: "Login necessário para ver dados de clientes." });
       return;
     }
   } catch (error) {
