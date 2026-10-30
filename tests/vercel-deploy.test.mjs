@@ -6,25 +6,13 @@ import test from "node:test";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-test("Vercel — vercel.json aponta build Node estático", () => {
+test("Vercel — vercel.json usa Build Output API (sem outputDirectory conflitante)", () => {
   const cfg = JSON.parse(readFileSync(join(ROOT, "vercel.json"), "utf8"));
   assert.equal(cfg.framework, null);
   assert.match(cfg.buildCommand, /npm run build/);
-  assert.equal(cfg.outputDirectory, "dist");
-  assert.equal(cfg.installCommand, undefined);
-  const fn = cfg.functions?.["api/[...path].js"];
-  assert.equal(typeof fn?.includeFiles, "string");
-  assert.match(fn.includeFiles, /lib/);
-  assert.match(fn.includeFiles, /research\/modeling\/output/);
-  assert.equal(Array.isArray(fn.includeFiles), false);
-});
-
-test("Vercel — vercel.json é JSON válido e includeFiles não é array (schema Vercel)", () => {
-  const raw = readFileSync(join(ROOT, "vercel.json"), "utf8");
-  const cfg = JSON.parse(raw);
-  const inc = cfg.functions?.["api/[...path].js"]?.includeFiles;
-  assert.notEqual(inc, null);
-  assert.strictEqual(typeof inc, "string");
+  assert.equal(cfg.outputDirectory, undefined);
+  assert.equal(cfg.functions, undefined);
+  assert.equal(cfg.rewrites, undefined);
 });
 
 test("Vercel — sem requirements.txt na raiz (detecção Python)", () => {
@@ -43,13 +31,20 @@ test("Vercel — catch-all API e dispatch compartilhado", () => {
   assert.match(dispatch, /sendApiNotFound/);
 });
 
-test("Vercel — build produz dist com SPA e lib", async () => {
+test("Vercel — build produz dist e Build Output API v3 completa", async () => {
   const { execSync } = await import("node:child_process");
   execSync("node scripts/vercel-build.mjs", { cwd: ROOT, stdio: "pipe" });
   assert.ok(existsSync(join(ROOT, "dist", "index.html")));
   assert.ok(existsSync(join(ROOT, "dist", "app.js")));
-  assert.ok(existsSync(join(ROOT, "dist", "lib", "http", "fetch-json.mjs")));
-  assert.equal(existsSync(join(ROOT, ".vercel", "output", "config.json")), false);
+  assert.ok(existsSync(join(ROOT, ".vercel", "output", "config.json")));
+  assert.ok(existsSync(join(ROOT, ".vercel", "output", "static", "index.html")));
+  assert.ok(existsSync(join(ROOT, ".vercel", "output", "functions", "api", "[...path].func", ".vc-config.json")));
+  assert.ok(
+    existsSync(join(ROOT, ".vercel", "output", "functions", "api", "[...path].func", "api", "[...path].js")),
+  );
+  const cfg = JSON.parse(readFileSync(join(ROOT, ".vercel", "output", "config.json"), "utf8"));
+  assert.equal(cfg.version, 3);
+  assert.ok(Array.isArray(cfg.routes));
 });
 
 test("Vercel — build espelha dist no cwd quando invocado fora da raiz (monorepo)", async () => {
@@ -61,15 +56,7 @@ test("Vercel — build espelha dist no cwd quando invocado fora da raiz (monorep
   assert.ok(existsSync(join(parent, "dist", "index.html")));
 });
 
-test("Vercel — rewrite SPA não captura /api", () => {
-  const cfg = JSON.parse(readFileSync(join(ROOT, "vercel.json"), "utf8"));
-  const spa = cfg.rewrites?.find((r) => r.destination === "/index.html");
-  assert.ok(spa?.source?.includes("api"));
-  assert.ok(cfg.rewrites?.some((r) => String(r.source).startsWith("/api/")));
-});
-
-test("Vercel — .vercel/output não deve estar versionado (evita deploy estático-only)", () => {
-  assert.equal(existsSync(join(ROOT, ".vercel", "output", "config.json")), false);
+test("Vercel — .vercel/output não deve estar versionado no git", () => {
   const tracked = readFileSync(join(ROOT, ".gitignore"), "utf8");
   assert.match(tracked, /\.vercel\//);
 });
