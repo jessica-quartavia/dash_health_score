@@ -12,6 +12,7 @@
     "dev": "node scripts/dev-server.mjs",
     "start": "node scripts/dev-server.mjs",
     "test": "node --test tests/**/*.test.mjs",
+    "test:production-smoke": "node --test tests/vercel-production-smoke.test.mjs",
     "export:predictive": "node scripts/export-predictive.mjs",
     "build:predictive-validated": "node scripts/build-predictive-validated.mjs",
     "model:audit": "python research/modeling/run_audit.py",
