@@ -1,0 +1,10 @@
+# Pesquisa estatística — não faz parte do runtime web (evita detecção Python)
+research/modeling/**/*.py
+research/modeling/**/__pycache__
+research/modeling/requirements-modeling.txt
+research/modeling/eda.ipynb
+
+# Segredos e ambiente local
+.env
+.env.*
+.env.local

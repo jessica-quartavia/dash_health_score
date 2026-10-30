@@ -9,7 +9,7 @@
 
 ```bash
 cd research/modeling
-python -m pip install -r requirements.txt
+python -m pip install -r requirements-modeling.txt
 ```
 
 ## Execução
