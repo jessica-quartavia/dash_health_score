@@ -129,15 +129,17 @@ export async function ensureCorporateSession({ onStatus } = {}) {
   await completeOAuthIfPresent().catch(() => {});
 
   let session = readStoredSession();
+  let authError = null;
   if (session) {
     const me = await fetchWithTimeout("/api/session-me", { headers: authHeaders() });
     if (me.ok) return { required: true, session, email: (await me.json()).email, policy };
+    authError = await me.json().catch(() => ({}));
     clearStoredSession();
     session = null;
   }
 
   onStatus?.("Login necessário");
-  return { required: true, session: null, policy };
+  return { required: true, session: null, policy, authError };
 }
 
 export async function signInWithGoogleCorporate() {

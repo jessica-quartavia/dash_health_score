@@ -9,19 +9,23 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 test("index — modal corporativo (dialog) em vez de card isolado no main", () => {
   const html = readFileSync(join(ROOT, "public", "index.html"), "utf8");
   assert.match(html, /id="authModal"/);
+  assert.match(html, /id="authOverlay"/);
+  assert.match(html, /primeCorporateAuthModal/);
   assert.match(html, /Bem-vindo ao Health Analytics/);
   assert.match(html, /Entrar com Google/);
-  assert.match(html, /@quartavia\.com\.br/);
+  assert.match(html, /conta corporativa/);
   assert.match(html, /aria-modal="true"/);
+  assert.doesNotMatch(html, /Acesso corporativo/);
   assert.doesNotMatch(html, /id="authGate"/);
-  assert.doesNotMatch(html, /class="card error-state hidden"[^>]*id="authGate"/);
 });
 
 test("styles — modal, overlay e estado auth-locked", () => {
   const css = readFileSync(join(ROOT, "public", "styles.css"), "utf8");
-  assert.match(css, /\.auth-modal::backdrop/);
+  assert.match(css, /\.auth-overlay/);
+  assert.match(css, /html\.auth-pending \.shell/);
   assert.match(css, /\.shell\.auth-locked/);
-  assert.match(css, /--navy/);
+  assert.match(css, /prefers-reduced-motion/);
+  assert.match(css, /460px/);
   assert.match(css, /\.btn-google/);
 });
 
@@ -29,7 +33,10 @@ test("app.js — gate usa modal, bloqueia Escape e mensagens por código", () =>
   const app = readFileSync(join(ROOT, "public", "app.js"), "utf8");
   assert.match(app, /getElementById\("authModal"\)/);
   assert.match(app, /showModal\(\)/);
-  assert.match(app, /auth-locked/);
+  assert.match(app, /setAuthLocked/);
+  assert.match(app, /clearProtectedUiState/);
+  assert.match(app, /primeAuthGateIfNeeded/);
+  assert.match(app, /setAttribute\("inert"/);
   assert.match(app, /formatAuthUserMessage/);
   assert.match(app, /AUTH_DOMAIN/);
   assert.match(app, /event\.preventDefault\(\)/);

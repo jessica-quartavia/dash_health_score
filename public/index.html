@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
 </head>
 <body>
+  <div id="authOverlay" class="auth-overlay" hidden aria-hidden="true"></div>
   <div class="shell" id="shell">
     <div class="backdrop" id="backdrop" hidden></div>
     <aside class="sidebar" id="sidebar">
@@ -132,12 +133,46 @@
         <span class="btn-google-label">Entrar com Google</span>
         <span class="btn-google-spinner" hidden aria-hidden="true"></span>
       </button>
-      <p class="auth-modal-foot">Utilize sua conta <strong>@quartavia.com.br</strong></p>
+      <p class="auth-modal-foot">Utilize sua conta corporativa <strong>@quartavia.com.br</strong></p>
     </div>
   </dialog>
   <dialog id="detailDialog" class="client-drawer"></dialog>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
+  <script>
+    (function primeCorporateAuthModal() {
+      var KEY = "ha:supabaseSession";
+      var showGate = true;
+      try {
+        var raw = localStorage.getItem(KEY);
+        if (raw) {
+          var parsed = JSON.parse(raw);
+          if (parsed && parsed.access_token && (!parsed.expires_at || Date.now() / 1000 < Number(parsed.expires_at) - 30)) {
+            showGate = false;
+          }
+        }
+      } catch (e) {
+        showGate = true;
+      }
+      if (!showGate) return;
+      document.documentElement.classList.add("auth-pending");
+      var shell = document.getElementById("shell");
+      if (shell) shell.classList.add("auth-locked");
+      var overlay = document.getElementById("authOverlay");
+      if (overlay) {
+        overlay.hidden = false;
+        overlay.setAttribute("aria-hidden", "false");
+      }
+      var modal = document.getElementById("authModal");
+      if (modal && typeof modal.showModal === "function") {
+        try {
+          modal.showModal();
+        } catch (e) {
+          /* app.js reabre */
+        }
+      }
+    })();
+  </script>
   <script type="module" src="/app.js?v=__HA_BUILD_ID__"></script>
 </body>
 </html>

@@ -58,6 +58,7 @@ import {
   isAuthErrorCode,
   signInWithGoogleCorporate,
   signOutCorporate,
+  readStoredSession,
 } from "./session-auth.mjs";
 
 const VIEWS = {
@@ -195,6 +196,8 @@ const HA_BOOT_DIAG =
   || localStorage.getItem("ha:bootdiag") === "1";
 
 let bootWatchdogTimer = null;
+let authUIRequired = false;
+let authModalBound = false;
 
 function bootDiag(stage, detail = {}) {
   if (!HA_BOOT_DIAG) return;
@@ -2840,6 +2843,7 @@ async function loadData({ refresh = false } = {}) {
       if (isAuthErrorCode(body.code)) {
         const msg = body.error || "Faça login com Google @quartavia.com.br.";
         disarmBootWatchdog();
+        clearProtectedUiState();
         showAuthGate(msg, {
           code: body.code,
           statusLine:
@@ -2971,12 +2975,70 @@ function setAuthLoginLoading(loading) {
   if (spinner) spinner.hidden = !loading;
 }
 
+function setAuthOverlayVisible(visible) {
+  const overlay = document.getElementById("authOverlay");
+  if (!overlay) return;
+  overlay.hidden = !visible;
+  overlay.setAttribute("aria-hidden", visible ? "false" : "true");
+}
+
+function setAuthLocked(locked) {
+  authUIRequired = locked;
+  document.documentElement.classList.toggle("auth-pending", locked);
+  el.shell?.classList.toggle("auth-locked", locked);
+  setAuthOverlayVisible(locked);
+  const shell = document.getElementById("shell");
+  if (locked) {
+    shell?.setAttribute("inert", "");
+    shell?.setAttribute("aria-hidden", "true");
+  } else {
+    shell?.removeAttribute("inert");
+    shell?.removeAttribute("aria-hidden");
+  }
+}
+
+function clearProtectedUiState() {
+  state.payload = null;
+  state.loadStatus = "auth_required";
+  state.loadError = null;
+  state.selectedId = null;
+  state.monitoringLoaded = false;
+  state.researchBundleLoaded = false;
+  state.researchPanorama = null;
+  state.monitoringSummary = null;
+  state.evolutionSummary = null;
+  state.qualityDiagnostics = [];
+  if (el.view) el.view.innerHTML = "";
+  if (el.scoreSlot) {
+    el.scoreSlot.innerHTML = "";
+    el.scoreSlot.hidden = true;
+  }
+  const banners = document.getElementById("systemBanners");
+  if (banners) {
+    banners.innerHTML = "";
+    banners.hidden = true;
+  }
+}
+
 function bindAuthModal() {
+  if (authModalBound) return;
+  authModalBound = true;
   const modal = document.getElementById("authModal");
   if (!modal) return;
   modal.addEventListener("cancel", (event) => {
-    if (el.shell?.classList.contains("auth-locked")) event.preventDefault();
+    if (authUIRequired) event.preventDefault();
   });
+  modal.addEventListener("close", () => {
+    if (authUIRequired) window.requestAnimationFrame(() => modal.showModal());
+  });
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal && authUIRequired) event.preventDefault();
+  });
+}
+
+function primeAuthGateIfNeeded() {
+  if (readStoredSession()) return;
+  showAuthGate(null, { code: "AUTH_REQUIRED", statusLine: "Verificando acesso corporativo…" });
 }
 
 function showAuthGate(message, { code, statusLine } = {}) {
@@ -2987,27 +3049,36 @@ function showAuthGate(message, { code, statusLine } = {}) {
   if (code === "AUTH_DOMAIN" || code === "AUTH_INVALID" || code === "AUTH_REQUIRED") {
     signOutCorporate();
   }
+  clearProtectedUiState();
   if (msg) msg.textContent = statusLine || "Utilize sua conta Google corporativa para continuar.";
   const showAlert = code === "AUTH_DOMAIN" || code === "AUTH_INVALID" || Boolean(message && code !== "AUTH_REQUIRED");
   setAuthModalAlert(showAlert ? friendly : "");
-  el.shell?.classList.add("auth-locked");
-  el.shell?.querySelector(".workspace")?.setAttribute("aria-hidden", "true");
-  el.view.innerHTML = "";
+  setAuthLocked(true);
   el.meta.textContent = "Login necessário";
   setAuthLoginLoading(false);
-  if (modal && !modal.open) {
-    modal.showModal();
-    window.requestAnimationFrame(() => document.getElementById("btnAuthLogin")?.focus());
-  }
+  if (modal && !modal.open) modal.showModal();
+  window.requestAnimationFrame(() => document.getElementById("btnAuthLogin")?.focus());
 }
 
 function hideAuthGate() {
-  el.shell?.classList.remove("auth-locked");
-  el.shell?.querySelector(".workspace")?.removeAttribute("aria-hidden");
+  authUIRequired = false;
+  setAuthLocked(false);
   setAuthModalAlert("");
   setAuthLoginLoading(false);
   const modal = document.getElementById("authModal");
   if (modal?.open) modal.close();
+}
+
+function wireAuthLoginButton() {
+  document.getElementById("btnAuthLogin")?.addEventListener("click", () => {
+    setAuthModalAlert("");
+    setAuthLoginLoading(true);
+    signInWithGoogleCorporate().catch((error) => {
+      setAuthLoginLoading(false);
+      setAuthModalAlert(error.message || "Não foi possível iniciar o login. Tente novamente.");
+      document.getElementById("btnAuthLogin")?.focus();
+    });
+  });
 }
 
 function scheduleLoad() {
@@ -3220,30 +3291,41 @@ async function boot() {
   }
   bootDiag("boot:start", { build: document.querySelector('script[type="module"]')?.src || null });
   bindAuthModal();
+  wireAuthLoginButton();
+  primeAuthGateIfNeeded();
   el.meta.textContent = "Verificando acesso…";
-  document.getElementById("btnAuthLogin")?.addEventListener("click", () => {
-    setAuthModalAlert("");
-    setAuthLoginLoading(true);
-    signInWithGoogleCorporate().catch((error) => {
-      setAuthLoginLoading(false);
-      setAuthModalAlert(error.message || "Não foi possível iniciar o login. Tente novamente.");
-      document.getElementById("btnAuthLogin")?.focus();
-    });
-  });
   try {
     const session = await ensureCorporateSession({
       onStatus: (line) => {
-        el.meta.textContent = line;
+        if (authUIRequired) {
+          const status = document.getElementById("authGateMessage");
+          if (status) status.textContent = line;
+        } else {
+          el.meta.textContent = line;
+        }
       },
     });
     bootDiag("auth", { required: session.required, hasSession: Boolean(session.session) });
-    if (session.required && !session.session) {
-      showAuthGate(null, { code: "AUTH_REQUIRED", statusLine: "Login necessário para ver dados de clientes." });
+    if (!session.required) {
+      hideAuthGate();
+    } else if (!session.session) {
+      const err = session.authError;
+      showAuthGate(err?.error || null, {
+        code: err?.code || "AUTH_REQUIRED",
+        statusLine:
+          err?.code === "AUTH_DOMAIN"
+            ? "Domínio não autorizado"
+            : "Login necessário para ver dados de clientes.",
+      });
       return;
+    } else {
+      hideAuthGate();
     }
   } catch (error) {
-    renderFatalView(error.message || "Falha ao verificar autenticação.");
-    el.meta.textContent = "Erro de autenticação";
+    showAuthGate(error.message || "Falha ao verificar autenticação.", {
+      code: "AUTH_INVALID",
+      statusLine: "Erro ao verificar autenticação",
+    });
     return;
   }
   readStoredWeights();
