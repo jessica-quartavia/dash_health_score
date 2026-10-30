@@ -7,7 +7,16 @@
  * errada (ex.: STATIC_BUILD_NO_OUT_DIR pedindo `public` quando outputDirectory
  * está ausente no vercel.json).
  */
-import { cpSync, mkdirSync, rmSync, existsSync, writeFileSync, lstatSync, readdirSync } from "node:fs";
+import {
+  cpSync,
+  mkdirSync,
+  rmSync,
+  existsSync,
+  writeFileSync,
+  readFileSync,
+  lstatSync,
+  readdirSync,
+} from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -99,6 +108,15 @@ function inspectOutputDir(outDir) {
 assertProjectRoot(PROJECT_ROOT);
 removeBuildOutputApiArtifacts();
 buildStatic(OUT);
+
+const buildId = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
+const indexPath = join(OUT, "index.html");
+writeFileSync(
+  indexPath,
+  readFileSync(indexPath, "utf8").replaceAll("__HA_BUILD_ID__", buildId),
+  "utf8",
+);
+writeFileSync(join(OUT, "build-id.txt"), `${buildId}\n`, "utf8");
 
 writeFileSync(
   join(OUT, ".vercel-build.json"),

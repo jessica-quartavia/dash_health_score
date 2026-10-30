@@ -51,6 +51,12 @@ import { renderResearchPanorama } from "./research-panorama.mjs";
 import { renderResearchLabHow } from "./research-lab-how.mjs";
 import { renderResearchLabModel } from "./research-lab-model.mjs";
 import { fetchJsonArtifact } from "/lib/http/fetch-json.mjs";
+import { validateHealthScorePayload } from "/lib/frontend/health-score-contract.mjs";
+import {
+  authHeaders,
+  ensureCorporateSession,
+  signInWithGoogleCorporate,
+} from "./session-auth.mjs";
 
 const VIEWS = {
   overview: ["Principal", "Visão Geral"],
@@ -181,6 +187,17 @@ let qualityRequestId = 0;
 
 const API_TIMEOUT_MS = 120_000;
 const API_PROBE_TIMEOUT_MS = 25_000;
+const BOOT_WATCHDOG_MS = 130_000;
+const HA_BOOT_DIAG =
+  new URLSearchParams(window.location.search).has("ha_bootdiag")
+  || localStorage.getItem("ha:bootdiag") === "1";
+
+let bootWatchdogTimer = null;
+
+function bootDiag(stage, detail = {}) {
+  if (!HA_BOOT_DIAG) return;
+  console.info("[ha:boot]", stage, { ms: Math.round(performance.now()), ...detail });
+}
 
 const el = {
   shell: document.getElementById("shell"),
@@ -2778,7 +2795,7 @@ async function fetchJson(url, { timeoutMs = API_TIMEOUT_MS } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, { signal: controller.signal });
+    const response = await fetch(url, { signal: controller.signal, headers: authHeaders() });
     const text = await response.text();
     const formatError = apiErrorFromResponse(response, text);
     if (formatError) {
@@ -2816,18 +2833,22 @@ async function loadData({ refresh = false } = {}) {
     const { response, body } = await fetchJson(`/api/health-score?${queryParams({ refresh }).toString()}`);
     if (!response.ok) {
       const hint =
-        body.code === "DATA_CONFIG" || body.code === "DATA_CONFIG_INVALID"
-          ? "Configure DATA_SUPABASE_URL e DATA_SUPABASE_SERVICE_ROLE_KEY na Vercel (Production)."
-          : body.code === "API_NOT_DEPLOYED"
-            ? body.error
-            : null;
+        body.code === "AUTH_REQUIRED" || body.code === "AUTH_INVALID" || body.code === "AUTH_DOMAIN"
+          ? body.error || "Faça login com Google @quartavia.com.br."
+          : body.code === "DATA_CONFIG" || body.code === "DATA_CONFIG_INVALID"
+            ? "Configure DATA_SUPABASE_URL e DATA_SUPABASE_SERVICE_ROLE_KEY na Vercel (Production)."
+            : body.code === "API_NOT_DEPLOYED"
+              ? body.error
+              : null;
       throw new Error(hint || body.message || body.error || "Falha na API principal.");
     }
-    if (!Array.isArray(body.clients)) throw new Error("Payload sem lista de clientes.");
+    const contract = validateHealthScorePayload(body);
+    if (!contract.ok) {
+      throw new Error(`Resposta incompleta da API (${contract.errors.join(", ")}).`);
+    }
     if (requestId !== state.requestId) return;
     const qKey = queryParams().toString();
     const resetPage = refresh || qKey !== state.lastQueryKey;
-    state.payload = body;
     state.hs2aLabSnapshot = body.metadata?.hs2aLab || null;
     if (resetPage) {
       state.page = 1;
@@ -2835,14 +2856,17 @@ async function loadData({ refresh = false } = {}) {
       state.evolutionSummaryKey = "";
     }
     state.lastQueryKey = qKey;
-    applyOptions(body);
+    state.payload = applyWeightsToPayload(body, state.weights);
+    applyOptions(state.payload);
     const meta = body.metadata || {};
     const ms = Math.round(performance.now() - started);
     el.meta.textContent = meta.generatedAt
-      ? `Atualizado ${new Date(meta.generatedAt).toLocaleString("pt-BR")} · ${fmt.format(body.clients.length)} clientes · ${ms} ms`
+      ? `Atualizado ${new Date(meta.generatedAt).toLocaleString("pt-BR")} · ${fmt.format(state.payload.clients.length)} clientes · ${ms} ms`
       : `Atualizado · ${ms} ms`;
     state.loadStatus = "ready";
+    disarmBootWatchdog();
     hideError();
+    bootDiag("loadData:ready", { clients: state.payload.clients.length, ms });
     loadMonitoringHistory().catch(() => {});
     safeRender();
   } catch (error) {
@@ -2852,9 +2876,52 @@ async function loadData({ refresh = false } = {}) {
     state.loadStatus = state.payload ? "partial_error" : "critical_error";
     showError(message);
     el.meta.textContent = state.payload ? "Dados parciais (erro na atualização)" : "Erro ao carregar";
+    bootDiag("loadData:error", { message });
+    disarmBootWatchdog();
     if (!state.payload) renderFatalView(message);
     else safeRender();
   }
+}
+
+function armBootWatchdog() {
+  disarmBootWatchdog();
+  const started = Date.now();
+  bootWatchdogTimer = window.setInterval(() => {
+    if (state.loadStatus === "ready") {
+      disarmBootWatchdog();
+      return;
+    }
+    if (Date.now() - started > BOOT_WATCHDOG_MS && /carregando/i.test(el.meta.textContent || "")) {
+      disarmBootWatchdog();
+      const message =
+        "O carregamento excedeu o tempo esperado. Verifique login corporativo, rede ou tente novamente.";
+      state.loadStatus = "critical_error";
+      state.loadError = message;
+      showError(message);
+      el.meta.textContent = "Tempo esgotado";
+      renderFatalView(message);
+    }
+  }, 5000);
+}
+
+function disarmBootWatchdog() {
+  if (bootWatchdogTimer) {
+    clearInterval(bootWatchdogTimer);
+    bootWatchdogTimer = null;
+  }
+}
+
+function showAuthGate(message) {
+  const gate = document.getElementById("authGate");
+  const msg = document.getElementById("authGateMessage");
+  if (msg && message) msg.textContent = message;
+  gate?.classList.remove("hidden");
+  el.view.innerHTML = "";
+  el.meta.textContent = "Login necessário";
+}
+
+function hideAuthGate() {
+  document.getElementById("authGate")?.classList.add("hidden");
 }
 
 function scheduleLoad() {
@@ -2982,7 +3049,11 @@ async function probeApiOnBoot() {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), API_PROBE_TIMEOUT_MS);
   try {
-    const res = await fetch("/api/config-status", { method: "GET", signal: controller.signal });
+    const res = await fetch("/api/config-status", {
+      method: "GET",
+      signal: controller.signal,
+      headers: authHeaders(),
+    });
     const text = await res.text();
     const formatError = apiErrorFromResponse(res, text);
     if (formatError) {
@@ -3034,23 +3105,50 @@ async function probeApiOnBoot() {
 }
 
 async function startDashboardLoad({ refresh = false } = {}) {
+  bootDiag("startDashboardLoad");
+  armBootWatchdog();
   const probe = await probeApiOnBoot();
+  bootDiag("probeApiOnBoot", { ok: probe.ok, code: probe.code || null });
   if (!probe.ok) {
     state.loadStatus = "critical_error";
     state.loadError = probe.message;
     showError(probe.message);
     el.meta.textContent = probe.code === "DATA_CONFIG" ? "Configuração incompleta" : "Erro de API";
     renderFatalView(probe.message);
+    disarmBootWatchdog();
     return;
   }
+  hideAuthGate();
   ensureResearchBundle();
   refreshSystemStatus();
   loadData({ refresh });
 }
 
-function boot() {
+async function boot() {
   if (!el.view || !el.meta) {
     console.error("[dashboard] DOM incompleto — verifique index.html");
+    return;
+  }
+  bootDiag("boot:start", { build: document.querySelector('script[type="module"]')?.src || null });
+  document.getElementById("btnAuthLogin")?.addEventListener("click", () => {
+    signInWithGoogleCorporate().catch((error) => {
+      showError(error.message || "Falha ao iniciar login.");
+    });
+  });
+  try {
+    const session = await ensureCorporateSession({
+      onStatus: (line) => {
+        el.meta.textContent = line;
+      },
+    });
+    bootDiag("auth", { required: session.required, hasSession: Boolean(session.session) });
+    if (session.required && !session.session) {
+      showAuthGate("Entre com Google @quartavia.com.br para acessar dados de clientes.");
+      return;
+    }
+  } catch (error) {
+    renderFatalView(error.message || "Falha ao verificar autenticação.");
+    el.meta.textContent = "Erro de autenticação";
     return;
   }
   readStoredWeights();
@@ -3074,14 +3172,35 @@ function boot() {
   applyFiltersSticky();
   window.addEventListener("ha:report-result", (ev) => showReportToast(ev.detail));
   bind();
-  startDashboardLoad();
+  startDashboardLoad().catch((error) => {
+    const message = error?.message || "Falha inesperada ao iniciar o dashboard.";
+    bootDiag("startDashboardLoad:unhandled", { message });
+    showError(message);
+    el.meta.textContent = "Erro ao iniciar";
+    renderFatalView(message);
+    disarmBootWatchdog();
+  });
 }
 
 window.addEventListener("error", (event) => {
   console.error("[dashboard]", event.error || event.message);
+  if (/carregando/i.test(el.meta?.textContent || "")) {
+    renderFatalView(event.message || "Erro de JavaScript durante o carregamento.");
+    el.meta.textContent = "Erro de script";
+    disarmBootWatchdog();
+  }
 });
 window.addEventListener("unhandledrejection", (event) => {
   console.error("[dashboard] promise rejeitada", event.reason);
+  if (/carregando/i.test(el.meta?.textContent || "")) {
+    const message = event.reason?.message || String(event.reason || "Promise rejeitada.");
+    renderFatalView(message);
+    el.meta.textContent = "Erro de API";
+    disarmBootWatchdog();
+  }
 });
 
-boot();
+boot().catch((error) => {
+  console.error("[dashboard boot]", error);
+  renderFatalView(error?.message || "Falha ao inicializar o painel.");
+});

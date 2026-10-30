@@ -1,8 +1,10 @@
 /** Renderiza faixa de status dinâmico no topo do workspace. */
 
+import { authHeaders } from "./session-auth.mjs";
+
 export async function loadSystemStatus() {
   try {
-    const res = await fetch("/api/system-status");
+    const res = await fetch("/api/system-status", { headers: authHeaders() });
     if (!res.ok) return null;
     return res.json();
   } catch {
