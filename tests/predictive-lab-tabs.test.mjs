@@ -62,6 +62,7 @@ test("Laboratório — relatório usa métricas versionadas do lab pack", async 
   const built = buildPredictiveExecutiveReportHtml(panorama, { engagement: 50, mechanism: 50 }, { labPack });
   assert.equal(built.ok, true);
   assert.match(built.bodyHtml, /Etapa 16|jun\/2026|2026-06/i);
-  assert.match(built.bodyHtml, /Modelo E|justificativa/i);
-  if (labPack.whyChosenPlain) assert.ok(built.bodyHtml.includes(labPack.whyChosenPlain.slice(0, 40)));
+  assert.match(built.bodyHtml, /1\. Resumo executivo/i);
+  assert.match(built.bodyHtml, /Modelo E/i);
+  assert.match(built.bodyHtml, /Etapa 17/i);
 });

@@ -7,7 +7,7 @@ import { buildPredictiveExecutiveReportHtml, wrapReportDocument } from "../lib/f
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-test("relatório preditivo inclui seções executivas obrigatórias", () => {
+test("relatório preditivo inclui seções executivas obrigatórias", async () => {
   const panorama = {
     generatedAt: "2026-01-15T12:00:00.000Z",
     kpis: {
@@ -36,20 +36,26 @@ test("relatório preditivo inclui seções executivas obrigatórias", () => {
   } catch {
     /* optional in CI */
   }
-  const built = buildPredictiveExecutiveReportHtml(panorama, { engagement: 70, mechanism: 30 }, { modeling });
+  const { buildPredictiveLabReference } = await import("../lib/research/predictive-lab-reference.mjs");
+  const labPack = buildPredictiveLabReference(ROOT);
+  const built = buildPredictiveExecutiveReportHtml(panorama, { engagement: 70, mechanism: 30 }, { modeling, labPack });
   assert.equal(built.ok, true);
-  assert.match(built.bodyHtml, /Estudo Preditivo de Churn/i);
-  assert.match(built.bodyHtml, /Resumo para sócios/i);
+  assert.match(built.bodyHtml, /Estudo preditivo de churn/i);
+  assert.match(built.bodyHtml, /1\. Resumo executivo/i);
   assert.match(built.bodyHtml, /regressão logística/i);
-  assert.match(built.bodyHtml, /Churn observado por faixa de HS/i);
-  assert.match(built.bodyHtml, /ROC-AUC/i);
-  assert.match(built.bodyHtml, /não operacional|operacional/i);
-  assert.match(built.bodyHtml, /Apêndice estatístico/i);
+  assert.match(built.bodyHtml, /ARIMA/i);
+  assert.match(built.bodyHtml, /_dash_health_score/i);
+  assert.match(built.bodyHtml, /Etapa 17/i);
+  assert.match(built.bodyHtml, /ROC-AUC mede/i);
+  assert.match(built.bodyHtml, /não.*operacional|probabilidades individuais/i);
+  assert.match(built.bodyHtml, /12\. Apêndice técnico/i);
   assert.match(built.bodyHtml, /Reconciliação de denominadores/i);
+  assert.match(built.bodyHtml, /Por que ainda não atingimos/i);
   if (modeling?.models?.A?.coef_top?.[0]?.coef != null) {
-    assert.match(built.bodyHtml, /num__freq_media_mes|coef_top/);
+    assert.match(built.bodyHtml, /num__freq_media_mes|Coeficientes logísticos/i);
     assert.doesNotMatch(built.bodyHtml, /β₀ = 0\.999/);
   }
+  assert.doesNotMatch(built.bodyHtml, /Resumo para sócios/i);
   const doc = wrapReportDocument(built.title, built.bodyHtml);
   assert.match(doc, /Salvar como PDF/i);
 });
