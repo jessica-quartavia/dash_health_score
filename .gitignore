@@ -4,6 +4,7 @@ node_modules/
 .DS_Store
 *.log
 .cache/
+.vercel/
 # Build estático (Vercel recria a cada deploy; não commitar artefatos)
 /dist/*
 !/dist/.gitkeep

@@ -12,7 +12,14 @@ test("Vercel — vercel.json aponta build Node estático", () => {
   assert.match(cfg.buildCommand, /npm run build/);
   assert.equal(cfg.outputDirectory, "dist");
   assert.equal(cfg.installCommand, undefined);
-  assert.ok(cfg.functions?.["api/**/*.js"]?.includeFiles?.includes("research/modeling/output"));
+  const fn = cfg.functions?.["api/[...path].js"];
+  const includes = fn?.includeFiles;
+  assert.ok(Array.isArray(includes) ? includes.includes("lib/**") : String(includes).includes("lib"));
+  assert.ok(
+    Array.isArray(includes)
+      ? includes.some((g) => g.includes("research/modeling/output"))
+      : String(includes).includes("research/modeling/output"),
+  );
 });
 
 test("Vercel — sem requirements.txt na raiz (detecção Python)", () => {
@@ -37,8 +44,7 @@ test("Vercel — build produz dist com SPA e lib", async () => {
   assert.ok(existsSync(join(ROOT, "dist", "index.html")));
   assert.ok(existsSync(join(ROOT, "dist", "app.js")));
   assert.ok(existsSync(join(ROOT, "dist", "lib", "http", "fetch-json.mjs")));
-  assert.ok(existsSync(join(ROOT, ".vercel", "output", "config.json")));
-  assert.ok(existsSync(join(ROOT, ".vercel", "output", "static", "index.html")));
+  assert.equal(existsSync(join(ROOT, ".vercel", "output", "config.json")), false);
 });
 
 test("Vercel — build espelha dist no cwd quando invocado fora da raiz (monorepo)", async () => {
@@ -50,9 +56,15 @@ test("Vercel — build espelha dist no cwd quando invocado fora da raiz (monorep
   assert.ok(existsSync(join(parent, "dist", "index.html")));
 });
 
-test("Vercel — rewrite SPA não menciona api no destino index", () => {
+test("Vercel — rewrite SPA não captura /api", () => {
   const cfg = JSON.parse(readFileSync(join(ROOT, "vercel.json"), "utf8"));
-  const rw = cfg.rewrites?.[0];
-  assert.ok(rw?.source?.includes("api"));
-  assert.equal(rw?.destination, "/index.html");
+  const spa = cfg.rewrites?.find((r) => r.destination === "/index.html");
+  assert.ok(spa?.source?.includes("api"));
+  assert.ok(cfg.rewrites?.some((r) => String(r.source).startsWith("/api/")));
+});
+
+test("Vercel — .vercel/output não deve estar versionado (evita deploy estático-only)", () => {
+  assert.equal(existsSync(join(ROOT, ".vercel", "output", "config.json")), false);
+  const tracked = readFileSync(join(ROOT, ".gitignore"), "utf8");
+  assert.match(tracked, /\.vercel\//);
 });

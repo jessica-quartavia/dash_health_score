@@ -1,73 +1,71 @@
 # Deploy na Vercel — Health Analytics
 
-## Arquitetura
+## Arquitetura em produção
 
 | Camada | Produção |
 |--------|----------|
-| Frontend | Estático em `dist/` (`public` + `lib` copiados no build) |
-| APIs | Serverless Node em `api/[...path].js` → `lib/api/dispatch-http-api.mjs` |
-| Python | Apenas local/CI (`research/modeling`) — **não** roda no build Vercel |
+| Frontend | Estático em `dist/` (`npm run build` copia `public/` + `lib/` do browser) |
+| APIs | **Serverless** `api/[...path].js` → `lib/api/dispatch-http-api.mjs` (mesmo roteador do `dev-server.mjs`) |
+| Local | `npm run dev` → `scripts/dev-server.mjs` na porta 3010 (Node persistente) |
 
-## Causa raiz comprovada: `STATIC_BUILD_NO_OUT_DIR`
+**Não** emitir `.vercel/output/config.json` (Build Output API v3) no build: isso publica **apenas** estáticos e **remove** as funções `/api/*` (sintoma: UI ok, KPIs vazios, `/api/health` → 404).
 
-No builder `@vercel/static-build`, o erro `STATIC_BUILD_NO_OUT_DIR` só ocorre quando, **depois** do comando de build, `existsSync(outputDirectory)` é falso (`validateDistDir` no repositório Vercel).
+## Variáveis de ambiente (Production)
 
-Logs do deploy (commit `18c7070`) mostram o contrário ao fim do **mesmo** `npm run build`:
+Cadastrar em **Vercel → Settings → Environment Variables** (somente backend; nunca `NEXT_PUBLIC_*`):
 
-- `cwd` = `projectRoot` = `/vercel/path0`
-- `outProject` = `/vercel/path0/dist`
-- script termina com **exit 0** e valida `index.html`
+| Variável | Obrigatória | Uso |
+|----------|-------------|-----|
+| `DATA_SUPABASE_URL` | Sim | BASE QV (leitura) |
+| `DATA_SUPABASE_SERVICE_ROLE_KEY` | Sim | Credencial servidor BASE QV |
+| `BUSINESS_SUPABASE_URL` | Monitoramento | Business Data (snapshots) |
+| `BUSINESS_SUPABASE_SERVICE_ROLE_KEY` | Monitoramento | Service role Business Data |
+| `AUTH_SUPABASE_URL` | Fallback BD | Alternativa de URL Business Data |
+| `AUTH_SUPABASE_SERVICE_ROLE_KEY` | Fallback BD | Alternativa de chave Business Data |
 
-Ou seja: **`dist/` é diretório real com conteúdo válido quando o Node encerra**, mas o passo seguinte do builder ainda falha ao resolver `outputDirectory: dist`. Isso não é falta de build local — é **incompatibilidade entre o artefato gerado e o caminho que o static-build valida** (projeto com `public/` + `api/` + `framework: null`).
+Aliases aceitos no código: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (preferir os nomes `DATA_*`).
 
-**Correção no repositório:** além de `dist/`, o build emite **Build Output API v3** (`.vercel/output/config.json` + `.vercel/output/static/`). O static-build detecta v3 **antes** de `validateDistDir` e publica a partir de `.vercel/output` (comportamento documentado da plataforma).
+Artefatos preditivos vêm do **git** (`research/modeling/output/*.json`), não de variáveis.
 
-**Painel Vercel:**
-
-1. Root Directory = pasta com `package.json` e `vercel.json`.
-2. Build Command vazio ou `npm run build` — **sem** override conflitante.
-3. Output Directory vazio ou `dist` — **não** `public`.
-4. Framework Preset: **Other**.
-
-## Painel Vercel (Project Settings)
+## Painel Vercel
 
 | Campo | Valor |
 |-------|--------|
 | Framework Preset | **Other** |
-| Root Directory | Pasta com `package.json` + `vercel.json` |
-| Build Command | *(vazio — usar `vercel.json`)* ou `npm run build` |
-| Output Directory | *(vazio — usar `vercel.json`)* ou `dist` |
-| Install Command | `npm install` |
-| Node.js Version | **20.x** (ver `engines` no `package.json`) |
+| Root Directory | pasta com `package.json` + `vercel.json` |
+| Build Command | vazio ou `npm run build` |
+| Output Directory | vazio ou `dist` (**não** `public`) |
+| Node.js | **20.x** |
 
-Evite marcar **Override** com `public` como output: o app publica em `dist/`, não em `public/` (fonte estática).
+## Rotas
 
-## Variáveis de ambiente (Production)
+- SPA: rewrite para `/index.html` exceto `/api/*` (`vercel.json`).
+- APIs: catch-all `api/[...path].js` — deve aparecer no deployment como Serverless Function.
 
-Somente no backend (nunca prefixo `NEXT_PUBLIC_`):
+## Requisições na inicialização do dashboard
 
-- `DATA_SUPABASE_URL`
-- `DATA_SUPABASE_SERVICE_ROLE_KEY`
-- Business Data (monitoramento), se usado: ver `docs/MONITORING_ETAPA12.md`
+| Ordem | Endpoint | Uso |
+|-------|----------|-----|
+| 1 | `GET /api/config-status` | Probe de API + env (boot) |
+| 2 | `GET /api/health-score?…` | Payload principal (KPIs, filtros, clientes) |
+| 3 | `GET /api/system-status` | Faixas de status no topo |
+| 4 | `GET /api/research-bundle` | Laboratório / metadados |
+| 5 | `GET /api/monitoring-history` | Após payload (monitoramento) |
 
-## SPA
+Demais rotas sob demanda: `research-panorama`, `predictive-lab-reference`, `monitoring-summary`, `portfolio-evolution-summary`, `client-snapshot-history`, `client-hs-history`, CSVs, etc. — todas via `api/[...path].js` → `dispatchHttpApi`.
 
-`vercel.json` reescreve rotas do dashboard para `/index.html`, exceto `/api/*`. Arquivos estáticos (`*.js`, `*.css`, …) continuam servidos de `dist/`.
+## Verificação pós-deploy
 
-## Laboratório Preditivo e `/api/*`
-
-Produção **não** usa `scripts/dev-server.mjs`. Todas as rotas passam por `api/[...path].js`.
-
-- `GET /api/predictive-lab-reference` — pacote versionado (Etapas 4, 15–17)
-- Outros JSON em `research/modeling/output/` — lidos pelo dispatch serverless
-
-Artefatos JSON versionados devem estar **no git** (exceções no `.gitignore`) e entram no bundle via `functions.includeFiles` em `vercel.json`. Sem esses arquivos no deploy, a API responde `partial` / `missing` — sem rerodar Python na Vercel.
+```text
+GET /api/health              → 200 JSON
+GET /api/config-status       → 200/503 JSON (nunca HTML)
+GET /api/health-score?...    → 200 JSON com clients[]
+GET /api/predictive-lab-reference → 200 JSON
+```
 
 ## Build local
 
 ```bash
 npm run build
-# dist/index.html + dist/lib/
+npm test
 ```
-
-O build falha com exit 1 se `dist/index.html` não existir na raiz do app **e** em `cwd/dist` após espelhamento.

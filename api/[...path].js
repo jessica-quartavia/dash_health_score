@@ -3,6 +3,10 @@ import { dispatchHttpApi, normalizeApiPath } from "../lib/api/dispatch-http-api.
 
 loadProjectEnv();
 
+export const config = {
+  maxDuration: 60,
+};
+
 export default async function handler(req, res) {
   const segments = req.query.path;
   const parts = Array.isArray(segments) ? segments : segments ? [segments] : [];

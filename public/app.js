@@ -2755,12 +2755,40 @@ function render() {
   if (state.lastRenderMs >= 0) console.debug("[nav render]", state.view, `${state.lastRenderMs}ms`);
 }
 
+function apiErrorFromResponse(response, text) {
+  const contentType = (response.headers.get("content-type") || "").toLowerCase();
+  const preview = String(text || "")
+    .trimStart()
+    .slice(0, 48);
+  const looksHtml = preview.startsWith("<!") || preview.startsWith("<html");
+  if (response.status === 404) {
+    return "Rotas /api/* indisponíveis neste deploy (404). Confirme funções serverless e variáveis de ambiente na Vercel.";
+  }
+  if (looksHtml || contentType.includes("text/html")) {
+    return "A API respondeu HTML em vez de JSON — verifique rewrites e deploy das funções /api/*.";
+  }
+  if (!contentType.includes("json")) {
+    return `Resposta inesperada da API (${response.status}, ${contentType || "sem Content-Type"}).`;
+  }
+  return null;
+}
+
 async function fetchJson(url, { timeoutMs = API_TIMEOUT_MS } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, { signal: controller.signal });
-    const body = await response.json().catch(() => ({ error: "Resposta inválida da API." }));
+    const text = await response.text();
+    const formatError = apiErrorFromResponse(response, text);
+    if (formatError) {
+      return { response, body: { error: formatError, code: response.status === 404 ? "API_NOT_DEPLOYED" : "API_BAD_FORMAT" } };
+    }
+    let body;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = { error: "JSON inválido na resposta da API." };
+    }
     return { response, body };
   } finally {
     clearTimeout(timer);
@@ -2785,7 +2813,15 @@ async function loadData({ refresh = false } = {}) {
   const started = performance.now();
   try {
     const { response, body } = await fetchJson(`/api/health-score?${queryParams({ refresh }).toString()}`);
-    if (!response.ok) throw new Error(body.error || "Falha na API principal.");
+    if (!response.ok) {
+      const hint =
+        body.code === "DATA_CONFIG" || body.code === "DATA_CONFIG_INVALID"
+          ? "Configure DATA_SUPABASE_URL e DATA_SUPABASE_SERVICE_ROLE_KEY na Vercel (Production)."
+          : body.code === "API_NOT_DEPLOYED"
+            ? body.error
+            : null;
+      throw new Error(hint || body.message || body.error || "Falha na API principal.");
+    }
     if (!Array.isArray(body.clients)) throw new Error("Payload sem lista de clientes.");
     if (requestId !== state.requestId) return;
     const qKey = queryParams().toString();
@@ -2941,6 +2977,26 @@ async function refreshSystemStatus() {
   refreshSystemBannersForView();
 }
 
+async function probeApiOnBoot() {
+  try {
+    const res = await fetch("/api/config-status", { method: "GET" });
+    if (res.status === 404) {
+      return {
+        ok: false,
+        message:
+          "Backend /api/* não está publicado neste deploy (404). Faça redeploy após remover Build Output API v3 e confirme a função api/[...path].js na Vercel.",
+      };
+    }
+    const ct = (res.headers.get("content-type") || "").toLowerCase();
+    if (ct.includes("text/html")) {
+      return { ok: false, message: "A rota /api respondeu HTML — revise rewrites e funções serverless." };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, message: "Não foi possível contactar /api/config-status (rede ou CORS)." };
+  }
+}
+
 function boot() {
   if (!el.view || !el.meta) {
     console.error("[dashboard] DOM incompleto — verifique index.html");
@@ -2967,9 +3023,19 @@ function boot() {
   applyFiltersSticky();
   window.addEventListener("ha:report-result", (ev) => showReportToast(ev.detail));
   bind();
-  ensureResearchBundle();
-  refreshSystemStatus();
-  loadData();
+  probeApiOnBoot().then((probe) => {
+    if (!probe.ok) {
+      state.loadStatus = "critical_error";
+      state.loadError = probe.message;
+      showError(probe.message);
+      el.meta.textContent = "Erro de API";
+      renderFatalView(probe.message);
+      return;
+    }
+    ensureResearchBundle();
+    refreshSystemStatus();
+    loadData();
+  });
 }
 
 window.addEventListener("error", (event) => {
