@@ -59,6 +59,7 @@ import {
   signInWithGoogleCorporate,
   signOutCorporate,
   readStoredSession,
+  isTransientAuthErrorCode,
 } from "./session-auth.mjs";
 
 const VIEWS = {
@@ -183,6 +184,7 @@ const state = {
   researchBundleLoaded: false,
   loadStatus: "idle",
   loadError: null,
+  corporateAuthRequired: null,
 };
 
 let periodPicker = null;
@@ -2022,11 +2024,18 @@ function researchPanoramaUi() {
 }
 
 async function ensurePredictiveLabPack(force = false) {
+  if (authUIRequired || mustBlockUnauthenticatedAccess()) return null;
   if (state.predictiveLabPackLoaded && !force && state.predictiveLabPack?.referenceModel) {
     return state.predictiveLabPack;
   }
   try {
-    const parsed = await fetchJsonArtifact("/api/predictive-lab-reference");
+    const parsed = await fetchJsonArtifact("/api/predictive-lab-reference", {
+      headers: authHeaders({ Accept: "application/json" }),
+    });
+    if (parsed.status === 401 && reactToProtectedApiAuthFailure(parsed.data || { code: "AUTH_REQUIRED" })) {
+      state.predictiveLabPackLoaded = false;
+      return null;
+    }
     if (parsed.ok && parsed.data?.referenceModel) {
       state.predictiveLabPack = parsed.data;
     } else {
@@ -2045,12 +2054,15 @@ async function ensurePredictiveLabPack(force = false) {
 }
 
 async function ensureResearchPanorama(force = false) {
+  if (authUIRequired || mustBlockUnauthenticatedAccess()) {
+    return null;
+  }
   const q = "frozen_descriptive_all";
   if (!force && state.researchPanorama && !state.researchPanorama.error && state.researchPanoramaQuery === q) {
     return state.researchPanorama;
   }
   try {
-    const res = await fetch("/api/research-panorama");
+    const res = await fetch("/api/research-panorama", { headers: authHeaders({ Accept: "application/json" }) });
     const contentType = res.headers.get("content-type") || "";
     const raw = await res.text();
     let body = null;
@@ -2060,6 +2072,11 @@ async function ensureResearchPanorama(force = false) {
       body = null;
     }
     if (!res.ok) {
+      if (res.status === 401 && reactToProtectedApiAuthFailure(body || { code: "AUTH_REQUIRED" })) {
+        state.researchPanorama = null;
+        state.researchPanoramaQuery = "";
+        return null;
+      }
       state.researchPanorama = {
         error: body?.error || res.statusText || "API indisponível",
         descriptiveAvailability: body?.descriptiveAvailability || {
@@ -2098,9 +2115,17 @@ async function ensureResearchPanorama(force = false) {
 }
 
 async function ensureResearchBundle(force = false) {
+  if (authUIRequired || mustBlockUnauthenticatedAccess()) return null;
   if (state.researchBundleLoaded && !force) return state.researchBundle;
   try {
-    const response = await fetch("/api/research-bundle");
+    const response = await fetch("/api/research-bundle", { headers: authHeaders({ Accept: "application/json" }) });
+    if (response.status === 401) {
+      const body = await response.json().catch(() => ({ code: "AUTH_REQUIRED" }));
+      if (reactToProtectedApiAuthFailure(body)) {
+        state.researchBundleLoaded = false;
+        return null;
+      }
+    }
     state.researchBundle = response.ok ? await response.json() : null;
     const data = state.researchBundle?.data || {};
     state.predictiveReadiness = data.predictiveReadiness ?? null;
@@ -2843,18 +2868,8 @@ async function loadData({ refresh = false } = {}) {
     bootDiag("loadData:response", { status: response.status, ok: response.ok });
     if (!response.ok) {
       if (isAuthErrorCode(body.code)) {
-        const msg = body.error || "Faça login com Google @quartavia.com.br.";
         disarmBootWatchdog();
-        clearProtectedUiState();
-        showAuthGate(msg, {
-          code: body.code,
-          statusLine:
-            body.code === "AUTH_DOMAIN"
-              ? "Domínio não autorizado"
-              : body.code === "AUTH_INVALID"
-                ? "Sessão expirada"
-                : "Autenticação necessária",
-        });
+        reactToProtectedApiAuthFailure(body);
         el.meta.textContent = "Login necessário";
         state.loadStatus = "auth_required";
         return;
@@ -2940,6 +2955,35 @@ function disarmBootWatchdog() {
     clearInterval(bootWatchdogTimer);
     bootWatchdogTimer = null;
   }
+}
+
+function authStatusLineForCode(code) {
+  if (code === "AUTH_DOMAIN") return "Domínio não autorizado";
+  if (code === "AUTH_INVALID") return "Sessão expirada";
+  if (code === "AUTH_UPSTREAM") return "Validação temporariamente indisponível";
+  if (code === "AUTH_NOT_CONFIGURED") return "Login corporativo indisponível";
+  return "Login necessário para ver dados de clientes.";
+}
+
+function reactToProtectedApiAuthFailure(body, { bumpRequest = true } = {}) {
+  const code = body?.code || "AUTH_REQUIRED";
+  if (!isAuthErrorCode(code)) return false;
+  if (isTransientAuthErrorCode(code)) {
+    setAuthModalAlert(body?.error || body?.message || "Não foi possível validar a sessão. Tente novamente.");
+    if (!authUIRequired) {
+      showAuthGate(body?.error || body?.message, {
+        code,
+        statusLine: authStatusLineForCode(code),
+      });
+    }
+    return true;
+  }
+  if (bumpRequest) state.requestId += 1;
+  showAuthGate(body?.error || body?.message, {
+    code,
+    statusLine: authStatusLineForCode(code),
+  });
+  return true;
 }
 
 function formatAuthUserMessage(message, code) {
@@ -3044,14 +3088,23 @@ function bindAuthModal() {
 
 function primeAuthGateIfNeeded() {
   if (readStoredSession()) return;
-  showAuthGate(null, { code: "AUTH_REQUIRED", statusLine: "Verificando acesso corporativo…" });
+  showAuthGate(null, { code: "AUTH_REQUIRED", statusLine: "Verificando acesso corporativo…", keepSession: true });
 }
 
-function showAuthGate(message, { code, statusLine } = {}) {
+function mustBlockUnauthenticatedAccess() {
+  if (state.corporateAuthRequired === false) return false;
+  return authUIRequired || !readStoredSession();
+}
+
+function showAuthGate(message, { code, statusLine, keepSession = false } = {}) {
   bindAuthModal();
   const msg = document.getElementById("authGateMessage");
   const friendly = formatAuthUserMessage(message, code);
-  if (code === "AUTH_DOMAIN" || code === "AUTH_INVALID" || code === "AUTH_REQUIRED") {
+  if (
+    !keepSession
+    && (code === "AUTH_DOMAIN" || code === "AUTH_INVALID" || code === "AUTH_REQUIRED")
+    && !isTransientAuthErrorCode(code)
+  ) {
     signOutCorporate();
   }
   clearProtectedUiState();
@@ -3061,6 +3114,7 @@ function showAuthGate(message, { code, statusLine } = {}) {
   setAuthLocked(true);
   if (el.meta) el.meta.textContent = "Login necessário";
   setAuthLoginLoading(false);
+  syncSignOutVisibility();
   window.requestAnimationFrame(() => {
     document.getElementById("btnAuthLogin")?.focus();
   });
@@ -3073,6 +3127,17 @@ function hideAuthGate() {
   setAuthLoginLoading(false);
   finishAuthBooting();
   setAuthScrollLock(false);
+  syncSignOutVisibility();
+}
+
+function syncSignOutVisibility() {
+  const btn = document.getElementById("btnSignOut");
+  if (!btn) return;
+  if (authUIRequired || mustBlockUnauthenticatedAccess()) {
+    btn.setAttribute("hidden", "");
+  } else if (state.corporateAuthRequired !== false) {
+    btn.removeAttribute("hidden");
+  }
 }
 
 function wireAuthLoginButton() {
@@ -3132,6 +3197,14 @@ function downloadAnalyticalCsv(payload) {
 function bind() {
   document.querySelectorAll(".nav-icon").forEach((node) => { node.innerHTML = ICONS[node.dataset.icon] || ""; });
   document.querySelectorAll(".nav-btn").forEach((button) => button.addEventListener("click", () => {
+    if (mustBlockUnauthenticatedAccess()) {
+      showAuthGate(null, {
+        code: "AUTH_REQUIRED",
+        statusLine: authStatusLineForCode("AUTH_REQUIRED"),
+        keepSession: true,
+      });
+      return;
+    }
     const next = button.dataset.view;
     const prev = state.view;
     if (next === prev) {
@@ -3153,6 +3226,16 @@ function bind() {
       render();
     }
   }));
+  document.getElementById("btnSignOut")?.addEventListener("click", async () => {
+    await signOutCorporate();
+    state.corporateAuthRequired = true;
+    clearProtectedUiState();
+    showAuthGate(null, {
+      code: "AUTH_REQUIRED",
+      statusLine: "Você saiu. Entre novamente com Google corporativo.",
+      keepSession: true,
+    });
+  });
   document.getElementById("btnCollapse").addEventListener("click", () => {
     el.shell.classList.toggle("collapsed");
     localStorage.setItem(SIDEBAR_KEY, el.shell.classList.contains("collapsed") ? "1" : "0");
@@ -3312,17 +3395,20 @@ async function boot() {
         }
       },
     });
-    bootDiag("auth", { required: session.required, hasSession: Boolean(session.session) });
+    state.corporateAuthRequired = Boolean(session.policy?.requireAuth ?? session.required);
+    bootDiag("auth", {
+      required: session.required,
+      hasSession: Boolean(session.session),
+      corporateAuthRequired: state.corporateAuthRequired,
+    });
     if (!session.required) {
       hideAuthGate();
     } else if (!session.session) {
       const err = session.authError;
       showAuthGate(err?.error || null, {
         code: err?.code || "AUTH_REQUIRED",
-        statusLine:
-          err?.code === "AUTH_DOMAIN"
-            ? "Domínio não autorizado"
-            : "Login necessário para ver dados de clientes.",
+        statusLine: authStatusLineForCode(err?.code || "AUTH_REQUIRED"),
+        keepSession: isTransientAuthErrorCode(err?.code),
       });
       return;
     } else {

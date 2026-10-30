@@ -97,13 +97,17 @@ export async function fetchAuthPolicy() {
     const res = await fetchWithTimeout("/api/session-policy", { method: "GET", cache: "no-store" });
     if (res.ok) return res.json();
   } catch {
-    /* timeout / rede */
+    /* timeout / rede — continua para inferência */
   }
   const inferred = await inferRequireAuthFromDataApi();
   if (inferred === true) {
     return { requireAuth: true, domain: "quartavia.com.br", source: "health-score-probe" };
   }
-  return { requireAuth: false, domain: "quartavia.com.br", source: "fallback" };
+  if (inferred === false) {
+    return { requireAuth: false, domain: "quartavia.com.br", source: "health-score-open" };
+  }
+  /* Produção: nunca assumir “sem login” quando política e probe são inconclusivos */
+  return { requireAuth: true, domain: "quartavia.com.br", source: "safe-default" };
 }
 
 export async function completeOAuthIfPresent() {
@@ -165,5 +169,16 @@ export async function signOutCorporate() {
 }
 
 export function isAuthErrorCode(code) {
-  return code === "AUTH_REQUIRED" || code === "AUTH_INVALID" || code === "AUTH_DOMAIN" || code === "AUTH_NOT_CONFIGURED";
+  return (
+    code === "AUTH_REQUIRED"
+    || code === "AUTH_INVALID"
+    || code === "AUTH_DOMAIN"
+    || code === "AUTH_NOT_CONFIGURED"
+    || code === "AUTH_UPSTREAM"
+  );
+}
+
+/** Erro de auth que não deve limpar sessão local (rede/upstream). */
+export function isTransientAuthErrorCode(code) {
+  return code === "AUTH_UPSTREAM";
 }

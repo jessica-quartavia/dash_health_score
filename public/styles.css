@@ -94,8 +94,13 @@ h1, h2, h3, p { margin: 0; }
 .shell.collapsed .nav-btn { justify-content: center; padding: 10px 8px; gap: 0; }
 .shell.collapsed .sidebar-toggle { justify-content: center; padding: 10px; }
 .shell.collapsed .sidebar-toggle-icon svg { transform: rotate(180deg); }
-.sidebar-toggle {
+.sidebar-signout {
   margin-top: auto;
+  width: 100%;
+  margin-bottom: 8px;
+}
+.sidebar-toggle {
+  margin-top: 0;
   display: flex;
   align-items: center;
   gap: 8px;

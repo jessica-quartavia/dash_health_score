@@ -43,6 +43,6 @@ test("app.js — gate via authGateLayer, bloqueia APIs e Escape", () => {
 test("app.js — erros de auth na API não expõem fatal view com dados", () => {
   const app = readFileSync(join(ROOT, "public", "app.js"), "utf8");
   const authBlock = app.slice(app.indexOf("isAuthErrorCode(body.code)"), app.indexOf("isAuthErrorCode(body.code)") + 600);
-  assert.match(authBlock, /showAuthGate/);
+  assert.match(authBlock, /reactToProtectedApiAuthFailure/);
   assert.doesNotMatch(authBlock, /renderFatalView/);
 });
