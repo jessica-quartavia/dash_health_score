@@ -11,7 +11,7 @@ test("Vercel — vercel.json aponta build Node estático", () => {
   assert.equal(cfg.framework, null);
   assert.match(cfg.buildCommand, /npm run build/);
   assert.equal(cfg.outputDirectory, "dist");
-  assert.match(cfg.installCommand, /npm install/);
+  assert.equal(cfg.installCommand, undefined);
   assert.ok(cfg.functions?.["api/**/*.js"]?.includeFiles?.includes("research/modeling/output"));
 });
 
@@ -37,6 +37,8 @@ test("Vercel — build produz dist com SPA e lib", async () => {
   assert.ok(existsSync(join(ROOT, "dist", "index.html")));
   assert.ok(existsSync(join(ROOT, "dist", "app.js")));
   assert.ok(existsSync(join(ROOT, "dist", "lib", "http", "fetch-json.mjs")));
+  assert.ok(existsSync(join(ROOT, ".vercel", "output", "config.json")));
+  assert.ok(existsSync(join(ROOT, ".vercel", "output", "static", "index.html")));
 });
 
 test("Vercel — build espelha dist no cwd quando invocado fora da raiz (monorepo)", async () => {

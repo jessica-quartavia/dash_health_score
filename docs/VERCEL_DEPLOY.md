@@ -8,19 +8,26 @@
 | APIs | Serverless Node em `api/[...path].js` → `lib/api/dispatch-http-api.mjs` |
 | Python | Apenas local/CI (`research/modeling`) — **não** roda no build Vercel |
 
-## Causa raiz comum: `STATIC_BUILD_NO_OUT_DIR`
+## Causa raiz comprovada: `STATIC_BUILD_NO_OUT_DIR`
 
-O script `scripts/vercel-build.mjs` grava `dist/` **sempre** ao lado de `package.json` (caminho absoluto a partir do script). A Vercel, após o build, procura `dist/` relativo ao **Root Directory** do projeto (`process.cwd()` no job).
+No builder `@vercel/static-build`, o erro `STATIC_BUILD_NO_OUT_DIR` só ocorre quando, **depois** do comando de build, `existsSync(outputDirectory)` é falso (`validateDistDir` no repositório Vercel).
 
-Se o repositório no GitHub for um monorepo (`dash_health_score/dash-health-score/`) e o painel tiver **Root Directory** na pasta pai, ou o **Build Command** invocar `node dash-health-score/scripts/vercel-build.mjs` sem `cd` na subpasta, o log pode mostrar build OK enquanto `dist/` só existe dentro da subpasta — daí `[STATIC_BUILD_NO_OUT_DIR]`.
+Logs do deploy (commit `18c7070`) mostram o contrário ao fim do **mesmo** `npm run build`:
 
-**Correção no repositório:** o build espelha `dist/` para `process.cwd()/dist` quando difere da raiz do app.
+- `cwd` = `projectRoot` = `/vercel/path0`
+- `outProject` = `/vercel/path0/dist`
+- script termina com **exit 0** e valida `index.html`
 
-**Correção no painel (escolha uma):**
+Ou seja: **`dist/` é diretório real com conteúdo válido quando o Node encerra**, mas o passo seguinte do builder ainda falha ao resolver `outputDirectory: dist`. Isso não é falta de build local — é **incompatibilidade entre o artefato gerado e o caminho que o static-build valida** (projeto com `public/` + `api/` + `framework: null`).
 
-1. **Recomendado:** Root Directory = pasta que contém `package.json` e `vercel.json` (raiz do app, ex.: `dash-health-score` se o clone tiver essa subpasta).
-2. Build Command = `npm run build` (não chamar o `.mjs` com caminho relativo a partir da pasta pai sem espelhamento).
-3. Desligar overrides conflitantes: Output Directory deve ser `dist`, não `public` (preset “Other” usa `public/` por padrão se existir).
+**Correção no repositório:** além de `dist/`, o build emite **Build Output API v3** (`.vercel/output/config.json` + `.vercel/output/static/`). O static-build detecta v3 **antes** de `validateDistDir` e publica a partir de `.vercel/output` (comportamento documentado da plataforma).
+
+**Painel Vercel:**
+
+1. Root Directory = pasta com `package.json` e `vercel.json`.
+2. Build Command vazio ou `npm run build` — **sem** override conflitante.
+3. Output Directory vazio ou `dist` — **não** `public`.
+4. Framework Preset: **Other**.
 
 ## Painel Vercel (Project Settings)
 

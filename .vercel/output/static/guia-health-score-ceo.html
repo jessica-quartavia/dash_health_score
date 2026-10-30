@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Guia do Health Score · Material para o CEO</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Carme&family=Ubuntu:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --black: #0a0a0a;
+      --white: #ffffff;
+      --off-white: #faf8f5;
+      --muted: #737373;
+      --border: #e5e5e5;
+      --coral: #e85d3a;
+      --success: #22a45a;
+      --warning: #d18426;
+      --risk: #c45a28;
+      --destructive: #ea6c4c;
+      --radius: 4px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      background: var(--off-white);
+      color: var(--black);
+    }
+
+    body {
+      font-family: Carme, "Segoe UI", system-ui, sans-serif;
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    h1, h2, h3, .eyebrow, .kicker, .print-bar button, th {
+      font-family: Ubuntu, Carme, sans-serif;
+    }
+
+    .print-bar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 24px;
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .print-bar p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .print-bar button {
+      border: 0;
+      border-radius: var(--radius);
+      padding: 10px 18px;
+      background: var(--coral);
+      color: var(--white);
+      font-weight: 500;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .page {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 40px 28px 80px;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--coral);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 500;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: 34px;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+    }
+
+    .lead {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .callout {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--coral);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      margin: 0 0 32px;
+    }
+
+    .callout strong { color: var(--coral); }
+
+    h2 {
+      margin: 36px 0 12px;
+      font-size: 22px;
+      letter-spacing: -0.02em;
+    }
+
+    h3 {
+      margin: 22px 0 8px;
+      font-size: 16px;
+    }
+
+    p { margin: 0 0 12px; }
+
+    ul, ol { margin: 0 0 14px; padding-left: 20px; }
+    li + li { margin-top: 6px; }
+
+    .muted { color: var(--muted); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin: 0 0 16px;
+      font-size: 13.5px;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f3f1ec;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 0 0 16px;
+    }
+
+    .kpi {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+    }
+
+    .kpi .label {
+      margin: 0 0 6px;
+      font-family: Ubuntu, sans-serif;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .kpi .range {
+      margin: 0 0 6px;
+      font-family: Ubuntu, sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    .kpi p { margin: 0; font-size: 14px; }
+
+    .kpi.healthy { border-color: var(--success); }
+    .kpi.attention { border-color: var(--warning); }
+    .kpi.risk { border-color: var(--risk); }
+    .kpi.critical { border-color: var(--destructive); }
+
+    .section {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    footer {
+      margin-top: 40px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media print {
+      .print-bar { display: none; }
+      body { background: white; }
+      .page { max-width: none; padding: 0; }
+      h2 { page-break-after: avoid; }
+      .callout, table, .kpi-grid { break-inside: avoid; }
+      @page {
+        size: A4;
+        margin: 16mm 16mm 18mm;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-bar">
+    <p>Guia executivo · Health Score de Clientes · para salvar como PDF, use Imprimir → Destino: Salvar como PDF</p>
+    <button type="button" onclick="window.print()">Salvar / imprimir PDF</button>
+  </div>
+
+  <main class="page">
+    <p class="eyebrow">Pharus · Material interno para o CEO</p>
+    <h1>Como ler o dashboard de Health Score</h1>
+    <p class="lead">Este guia percorre a tela na ordem em que ela aparece: o que o número significa, por que existe e quando vale prestar atenção.</p>
+
+    <div class="callout">
+      <p><strong>Aviso importante.</strong> O Health Score é um indicador experimental, feito para testar métricas de relacionamento. Ele <strong>não é um score oficial de churn</strong> e não deve ser usado sozinho para decidir cancelamento, renovação ou cobrança.</p>
+      <p style="margin:0">Há um único modelo: Engajamento e Mecanismos, com 50%/50% como padrão. Os pesos podem ser editados no dashboard; o score sai da fórmula, sem teto extra e sem arredondamento.</p>
+    </div>
+
+    <section class="section" id="currentSnapshot">
+      <h2>Comparativo da carteira por recorte</h2>
+      <p class="muted">Carregando a carteira completa em Ativos, Renovados, Cancelados e Total...</p>
+    </section>
+
+    <section class="section">
+      <h2>1. O que este dashboard responde</h2>
+      <p>A pergunta central é: <strong>como está a saúde do relacionamento com cada cliente da carteira?</strong></p>
+      <p>O sistema lê a BASE QV (mesma base da Jornada) e resume dois pilares:</p>
+      <ul>
+        <li><strong>Engajamento (E)</strong> — o cliente está sendo acompanhado com cadência de reuniões?</li>
+        <li><strong>Mecanismos (M)</strong> — o mecanismo patrimonial foi implantado, e em que volume?</li>
+      </ul>
+      <p>Há quatro recortes de carteira (Ativos, Renovados, Cancelados e Total). Tudo o que você vê — cartões, barras, tabela e CSV — é sempre o recorte escolhido.</p>
+    </section>
+
+    <section class="section">
+      <h2>2. Como navegar na tela</h2>
+      <h3>Recorte</h3>
+      <p>Fica no topo. Escolhe <em>quem</em> entra nos gráficos. O padrão é <strong>Ativos</strong>.</p>
+      <ul>
+        <li><strong>Ativos</strong> — clientes com status analítico Ativo. Congelados e cancelados efetivados ficam de fora.</li>
+        <li><strong>Renovados</strong> — clientes com ciclo maior que 1 (já renovaram pelo menos uma vez). Podem estar ativos ou já ter cancelado depois.</li>
+        <li><strong>Cancelados</strong> — só quem tem evidência de cancelamento efetivado. Pedido ou intenção de sair <strong>não</strong> entram.</li>
+        <li><strong>Total</strong> — toda a BASE QV, depois das exclusões locais (casos isolados).</li>
+      </ul>
+      <p>Os recortes <strong>não são exclusivos</strong>. Um cliente ativo e renovado aparece em Ativos e também em Renovados. Um renovado que depois cancelou aparece em Renovados e em Cancelados. Por isso a soma dos três primeiros não precisa bater com o Total.</p>
+
+      <h3>Filtros e CSV</h3>
+      <p>Busca, EP, programa e classificação refinam o recorte. O botão <strong>Baixar CSV</strong> exporta exatamente o que está na tela (recorte + filtros), para Excel em português. As colunas acompanham a tabela: reuniões, média/mês, nota E, mecanismos, nota M, Health Score e classificação. O botão <strong>Imprimir PDF</strong> abre este guia e o diálogo para salvar como PDF.</p>
+    </section>
+
+    <section class="section">
+      <h2>3. Como o score é calculado</h2>
+      <p>Cada cliente recebe duas notas. Depois elas entram com os pesos definidos no dashboard:</p>
+      <p><strong>Health Score = (E × peso de E) + (M × peso de M)</strong></p>
+      <p>Não há arredondamento extra nem teto além do que a própria fórmula já produz (o máximo é 100 quando E e M valem 100).</p>
+
+      <h3>Engajamento (E) — média de reuniões por mês</h3>
+      <p>A média usa o <strong>ciclo atual</strong> (<em>data_inicio_ciclo</em>): reuniões válidas divididas pelos meses de ciclo. Isso mede cadência, não carência de entrada.</p>
+      <table>
+        <thead>
+          <tr><th>Média mensal</th><th>Nota E</th><th>Leitura</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1,00 ou mais</td><td>100</td><td>Saudável</td></tr>
+          <tr><td>0,25 a menos de 1,00</td><td>60</td><td>Atenção</td></tr>
+          <tr><td>Mais que 0 e menos de 0,25</td><td>20</td><td>Crítico</td></tr>
+          <tr><td>Zero</td><td>0</td><td>Crítico</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Mecanismos (M) — quantidade implantada</h3>
+      <table>
+        <thead>
+          <tr><th>Mecanismos implantados</th><th>Nota M</th><th>Leitura</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>3 ou mais</td><td>100</td><td>Saudável</td></tr>
+          <tr><td>1 ou 2</td><td>60</td><td>Atenção</td></tr>
+          <tr><td>Nenhum</td><td>0</td><td>Crítico</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>4. Os cinco estados (nessa ordem)</h2>
+      <p>A classificação não olha só o número. A primeira condição que bater define o estado:</p>
+      <ol>
+        <li><strong>Em implantação</strong> — menos de 90 dias desde a <em>entrada</em> e M = 0. Cliente com ciclo maior que 1 <strong>nunca</strong> entra aqui (já passou da janela de onboarding).</li>
+        <li><strong>Sem registro</strong> — zero reuniões válidas e zero mecanismos. Deixa de ser “descartado”: vira um estado visível nos cartões, no gráfico e no CSV.</li>
+        <li><strong>Saudável</strong> — score 70 ou mais.</li>
+        <li><strong>Atenção</strong> — score 20 ou mais.</li>
+        <li><strong>Crítico</strong> — o restante.</li>
+      </ol>
+      <p>Os 90 dias de carência usam a <strong>data de entrada</strong> (<em>created_at</em>, com fallback em <em>data_inicio_ciclo</em>). Não misturar com o relógio do ciclo: ciclo mede cadência de reunião; entrada mede se o cliente ainda está implantando.</p>
+
+      <div class="kpi-grid">
+        <article class="kpi healthy">
+          <p class="label">Saudável</p>
+          <p class="range">≥ 70</p>
+          <p>Cliente engajado e com mecanismo rodando. Relação em ritmo.</p>
+        </article>
+        <article class="kpi attention">
+          <p class="label">Atenção</p>
+          <p class="range">≥ 20</p>
+          <p>Algum sinal fraco. Vale monitorar, ainda não é alarme.</p>
+        </article>
+        <article class="kpi critical">
+          <p class="label">Crítico</p>
+          <p class="range">abaixo de 20</p>
+          <p>Alta probabilidade de churn. Prioridade de intervenção.</p>
+        </article>
+        <article class="kpi">
+          <p class="label">Em implantação</p>
+          <p class="range">&lt; 90 dias e M = 0</p>
+          <p>Janela natural. Não punir cliente novo sem mecanismo — salvo se já renovou.</p>
+        </article>
+        <article class="kpi">
+          <p class="label">Sem registro</p>
+          <p class="range">0 reunião e 0 mecanismo</p>
+          <p>Não há dado de relacionamento. Entra na amostra para aparecer, não some da carteira.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>5. Os cartões do topo</h2>
+      <p>Eles respondem, em uma linha, “como está o recorte que estou vendo agora?”. A amostra inclui todo mundo do recorte — inclusive Sem registro e Em implantação.</p>
+      <ul>
+        <li><strong>Clientes filtrados</strong> — denominador dos gráficos e da média.</li>
+        <li><strong>Score médio</strong> — temperatura média da carteira escolhida, não uma nota da empresa.</li>
+        <li><strong>Saudáveis, Atenção, Críticos, Em implantação, Sem registro</strong> — contagem e porcentagem de cada estado.</li>
+      </ul>
+    </section>
+
+    <section class="section">
+      <h2>6. Gráfico Health Score</h2>
+      <p>É a mesma amostra dos cartões, em cinco barras. Leitura prática: se Crítico cresce ao ir de Ativos para Cancelados, o modelo está capturando carteira já deteriorada — o esperado. Se cresce dentro de <strong>Ativos</strong>, é sinal operacional: gente ainda na casa, com relacionamento fraco.</p>
+      <p>Sem registro alto em Ativos pede checagem de cadastro ou de operação (reunião não lançada, mecanismo não marcado), não necessariamente churn.</p>
+    </section>
+
+    <section class="section">
+      <h2>7. Gráficos Engajamento (E) e Mecanismos (M)</h2>
+      <p>Mostram como a carteira se espalha em Saudável, Atenção e Crítico em cada pilar. Em E, 100 é Saudável, 60 é Atenção e 20 ou 0 são Crítico. Em M, 100 é Saudável, 60 é Atenção e 0 é Crítico. São o “porquê” por trás do score.</p>
+      <p>Uma reunião só conta se for válida: aconteceu depois do início do ciclo, não está no futuro e não foi marcada como cancelada na presença. Reuniões manuais que duplicam um evento já lançado não são somadas duas vezes.</p>
+      <p>Mecanismo implantado é o que está concluído ou implementado — intenção ou rascunho não sobe a contagem.</p>
+    </section>
+
+    <section class="section">
+      <h2>8. Os quatro recortes, com mais rigor</h2>
+      <table>
+        <thead>
+          <tr><th>Recorte</th><th>Regra</th><th>Para que serve na conversa de gestão</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Ativos</td>
+            <td>Status analítico = Ativo</td>
+            <td>Carteira viva. É o recorte padrão do dia a dia.</td>
+          </tr>
+          <tr>
+            <td>Renovados</td>
+            <td>Campo <em>ciclo</em> do cliente maior que 1</td>
+            <td>Quem já confiou de novo. Útil para ver se renovação veio com saúde ou só com inércia. Nunca cai em Em implantação.</td>
+          </tr>
+          <tr>
+            <td>Cancelados</td>
+            <td>Evidência: data de churn efetivado, distrato assinado, texto de distrato “Assinado”, ou data de churn no cadastro</td>
+            <td>Autópsia. Intenção ou pedido de cancelamento <strong>não</strong> entram — o cliente ainda está na casa.</td>
+          </tr>
+          <tr>
+            <td>Total</td>
+            <td>Todos os clientes da BASE QV (após exclusões locais)</td>
+            <td>Visão de estoque completo: ativos, congelados e cancelados juntos.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>9. Tabela por cliente e o CSV</h2>
+      <p>A tabela (recolhida por padrão) e o arquivo CSV contam a mesma história, linha a linha:</p>
+      <ul>
+        <li><strong>Reuniões e média/mês</strong> — volume e cadência no ciclo.</li>
+        <li><strong>E e M</strong> — as duas notas da fórmula.</li>
+        <li><strong>Health Score e classificação</strong> — o número e o estado (incluindo Em implantação e Sem registro).</li>
+        <li><strong>Ciclo / renovado / cancelamento</strong> — contexto de carteira, não de score.</li>
+      </ul>
+    </section>
+
+    <section class="section">
+      <h2>Como usar isso numa reunião de gestão</h2>
+      <ol>
+        <li>Comece em <strong>Ativos</strong>. Olhe score médio e as fatias de Crítico, Sem registro e Em implantação.</li>
+        <li>Se Críticos estiverem altos, abra Engajamento (E) ou Mecanismos (M) para ver o que puxou.</li>
+        <li>Compare com <strong>Renovados</strong>: renovação com score baixo é alerta de qualidade, não só de volume.</li>
+        <li>Use <strong>Cancelados</strong> para ver o retrato de quem já saiu — não para gerir a carteira viva.</li>
+        <li>Baixe o CSV do recorte se a conversa precisar ir ao cliente específico.</li>
+      </ol>
+    </section>
+
+    <footer>
+      Fontes das regras: cálculo no servidor (E e M com pesos editáveis, padrão 50/50, cinco estados), recortes Ativos / Renovados / Cancelados / Total, BASE QV (clients, reuniões, mecanismos e cancelamentos).<br />
+      Documento gerado para apoio à leitura do dashboard experimental de Health Score. Não substitui a política comercial nem o critério do time de Customer Success.
+    </footer>
+  </main>
+  <script>
+    const snapshot = document.getElementById("currentSnapshot");
+    const printOnLoad = new URLSearchParams(window.location.search).has("print");
+    const clusters = [
+      { id: "ativos", label: "Ativos" },
+      { id: "renovados", label: "Renovados" },
+      { id: "cancelados", label: "Cancelados" },
+      { id: "total", label: "Total" },
+    ];
+    const escapeHtml = (value) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;");
+    const percent = (value) => value == null ? "—" : `${Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+    const decimal = (value) => Number(value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    const correlation = (value) => value == null ? "Sem base suficiente" : Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+    const strength = (value) => {
+      const magnitude = Math.abs(Number(value));
+      if (magnitude < 0.1) return "muito fraca";
+      if (magnitude < 0.3) return "fraca";
+      if (magnitude < 0.5) return "moderada";
+      return "forte";
+    };
+    const direction = (value) => Number(value) > 0 ? "positiva" : Number(value) < 0 ? "negativa" : "nula";
+    const correlationReading = (row) => {
+      if (row.pearson == null || row.spearman == null) return `A base de ${row.sampleSize || 0} clientes não permite calcular uma correlação confiável para ${row.label.toLowerCase()}.`;
+      return `${row.label}: Pearson ${correlation(row.pearson)} e Spearman ${correlation(row.spearman)}, indicando associação ${strength(row.spearman)} e ${direction(row.spearman)}.`;
+    };
+    const recorteHtml = ({ label, payload, error }) => {
+      if (error) return `<section class="section"><h2>${escapeHtml(label)}</h2><p class="muted">Não foi possível carregar este recorte.</p></section>`;
+      const summary = payload.summary || {};
+      const healthDistribution = payload.healthDistribution || [];
+      const distributions = payload.distributions || {};
+      const nps = payload.nps || {};
+      const correlations = nps.correlations || [];
+      const engagement = correlations.find((item) => item.key === "engagementScore") || {};
+      const mechanism = correlations.find((item) => item.key === "mechanismScore") || {};
+      const distributionRows = (rows, labels) => labels.map((label) => rows.find((row) => row.label === label) || { label, count: 0, percent: 0 });
+      const healthRows = distributionRows(healthDistribution, ["Saudável", "Atenção", "Crítico", "Em implantação", "Sem registro"]);
+      const pillarRows = [
+        { label: "Engajamento", rows: distributionRows(distributions.engagement || [], ["Saudável", "Atenção", "Crítico"]) },
+        { label: "Mecanismos", rows: distributionRows(distributions.mechanism || [], ["Saudável", "Atenção", "Crítico"]) },
+      ];
+      const compared = engagement.spearman == null || mechanism.spearman == null
+        ? "Não há base suficiente para comparar os dois indicadores."
+        : Math.abs(engagement.spearman - mechanism.spearman) < 0.02
+          ? "Engajamento e Mecanismos apresentam associações de intensidade semelhante."
+          : `${Math.abs(mechanism.spearman) > Math.abs(engagement.spearman) ? "Mecanismos" : "Engajamento"} apresenta a associação mais forte com NPS neste recorte.`;
+      const renewalReading = (nps.renewalByClass || []).map((row) => `${row.label}: ${row.respondents} respondentes; ${row.renewed} renovaram; taxa de ${percent(row.renewalRate)}.`).join(" ");
+      return `<section class="section">
+        <h2>${escapeHtml(label)}</h2>
+        <h3>Panorama de Health Score</h3>
+        <table><tbody>
+          <tr><th>Clientes</th><td>${escapeHtml(summary.totalClients || 0)}</td><th>Score médio</th><td>${escapeHtml(decimal(summary.averageScore))}</td></tr>
+        </tbody></table>
+        <table><thead><tr><th>Classificação de Health Score</th><th>Clientes</th><th>Participação</th></tr></thead><tbody>
+          ${healthRows.map((row) => `<tr><td>${escapeHtml(row.label)}</td><td>${escapeHtml(row.count)}</td><td>${escapeHtml(percent(row.percent))}</td></tr>`).join("")}
+        </tbody></table>
+        <h3>Distribuição dos pilares</h3>
+        <table><thead><tr><th>Pilar</th><th>Saudável</th><th>Atenção</th><th>Crítico</th></tr></thead><tbody>
+          ${pillarRows.map((pillar) => `<tr><td>${escapeHtml(pillar.label)}</td>${pillar.rows.map((row) => `<td>${escapeHtml(row.count)} (${escapeHtml(percent(row.percent))})</td>`).join("")}</tr>`).join("")}
+        </tbody></table>
+        <p class="muted">A distribuição dos pilares mostra quais componentes explicam o Health Score deste recorte.</p>
+        <h3>Panorama de NPS</h3>
+        <table><tbody>
+          <tr><th>Respondentes NPS</th><td>${escapeHtml(nps.respondents || 0)}</td><th>Cobertura NPS</th><td>${escapeHtml(percent(nps.coveragePercent))}</td></tr>
+          <tr><th>Leitura da cobertura</th><td colspan="3">${escapeHtml(nps.respondents || 0)} de ${escapeHtml(nps.totalClients || 0)} clientes têm uma última resposta NPS válida. A leitura se limita a essa amostra.</td></tr>
+        </tbody></table>
+        <h3>Correlação NPS</h3>
+        <table><thead><tr><th>Par</th><th>Pearson</th><th>Spearman</th><th>Base pareada</th></tr></thead><tbody>
+          ${[engagement, mechanism].map((row) => `<tr><td>${escapeHtml(row.label || "—")}</td><td>${escapeHtml(correlation(row.pearson))}</td><td>${escapeHtml(correlation(row.spearman))}</td><td>${escapeHtml(row.sampleSize || 0)}</td></tr>`).join("")}
+        </tbody></table>
+        <p>${escapeHtml(correlationReading(engagement))} ${escapeHtml(correlationReading(mechanism))} ${escapeHtml(compared)}</p>
+        <h3>Renovação por NPS</h3>
+        <table><thead><tr><th>Classe NPS</th><th>Respondentes</th><th>Renovados</th><th>Taxa de renovação</th><th>Participação entre renovados</th></tr></thead><tbody>
+          ${(nps.renewalByClass || []).map((row) => `<tr><td>${escapeHtml(row.label)}</td><td>${escapeHtml(row.respondents)}</td><td>${escapeHtml(row.renewed)}</td><td>${escapeHtml(percent(row.renewalRate))}</td><td>${escapeHtml(percent(row.shareOfRenewed))}</td></tr>`).join("")}
+        </tbody></table>
+        <p>${escapeHtml(renewalReading)}</p>
+        <p class="muted">Os resultados descrevem associação, não causalidade ou previsão de renovação.</p>
+      </section>`;
+    };
+    Promise.all(clusters.map(async (cluster) => {
+      try {
+        const response = await fetch(`/api/health-score?cluster=${cluster.id}&ep=all&program=all&finalClass=all`);
+        if (!response.ok) throw new Error("Falha ao carregar recorte");
+        return { ...cluster, payload: await response.json() };
+      } catch (error) {
+        return { ...cluster, error };
+      }
+    }))
+      .then((results) => {
+        snapshot.innerHTML = `<h2>Comparativo da carteira por recorte</h2><p class="muted">Carteira completa, sem filtros ou pesos simulados do dashboard. Os recortes podem se sobrepor e não devem ser somados.</p>${results.map(recorteHtml).join("")}`;
+      })
+      .catch(() => { snapshot.innerHTML = "<h2>Comparativo da carteira por recorte</h2><p class=\"muted\">Não foi possível carregar os recortes da carteira.</p>"; })
+      .finally(() => { if (printOnLoad) window.print(); });
+  </script>
+</body>
+</html>
