@@ -180,6 +180,7 @@ let periodPicker = null;
 let qualityRequestId = 0;
 
 const API_TIMEOUT_MS = 120_000;
+const API_PROBE_TIMEOUT_MS = 25_000;
 
 const el = {
   shell: document.getElementById("shell"),
@@ -2711,7 +2712,7 @@ function renderFatalView(message, { retry = true } = {}) {
       <p class="sub">${escapeHtml(message || "Erro desconhecido.")}</p>
       ${retry ? `<button type="button" class="btn" id="btnRetryLoad">Tentar novamente</button>` : ""}
     </section>`;
-  document.getElementById("btnRetryLoad")?.addEventListener("click", () => loadData({ refresh: true }));
+  document.getElementById("btnRetryLoad")?.addEventListener("click", () => startDashboardLoad({ refresh: true }));
 }
 
 function safeRender() {
@@ -2978,23 +2979,73 @@ async function refreshSystemStatus() {
 }
 
 async function probeApiOnBoot() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), API_PROBE_TIMEOUT_MS);
   try {
-    const res = await fetch("/api/config-status", { method: "GET" });
-    if (res.status === 404) {
+    const res = await fetch("/api/config-status", { method: "GET", signal: controller.signal });
+    const text = await res.text();
+    const formatError = apiErrorFromResponse(res, text);
+    if (formatError) {
+      return { ok: false, message: formatError, code: res.status === 404 ? "API_NOT_DEPLOYED" : "API_BAD_FORMAT" };
+    }
+    let body;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      return { ok: false, message: "Resposta inválida de /api/config-status.", code: "API_BAD_FORMAT" };
+    }
+    if (res.status === 503 || body.ready === false) {
+      const missing = Object.entries(body.presence || {})
+        .filter(([, v]) => v !== "presente")
+        .map(([k]) => k);
+      const envHint = missing.length
+        ? ` Configure na Vercel (Production): ${missing.join(", ")}.`
+        : body.message
+          ? ` ${body.message}`
+          : "";
+      return {
+        ok: false,
+        message: `BASE QV não configurada para leitura.${envHint}`,
+        code: body.code || "DATA_CONFIG",
+        configStatus: body,
+      };
+    }
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: body.message || body.error || `API indisponível (${res.status}).`,
+        code: body.code || "API_ERROR",
+      };
+    }
+    return { ok: true, configStatus: body };
+  } catch (error) {
+    if (error.name === "AbortError") {
       return {
         ok: false,
         message:
-          "Backend /api/* não está publicado neste deploy (404). Faça redeploy após remover Build Output API v3 e confirme a função api/[...path].js na Vercel.",
+          "A API não respondeu a tempo (timeout). Verifique funções serverless /api/* na Vercel e redeploy após correções.",
+        code: "API_TIMEOUT",
       };
     }
-    const ct = (res.headers.get("content-type") || "").toLowerCase();
-    if (ct.includes("text/html")) {
-      return { ok: false, message: "A rota /api respondeu HTML — revise rewrites e funções serverless." };
-    }
-    return { ok: true };
-  } catch {
-    return { ok: false, message: "Não foi possível contactar /api/config-status (rede ou CORS)." };
+    return { ok: false, message: "Não foi possível contactar /api/config-status (rede ou CORS).", code: "NETWORK" };
+  } finally {
+    clearTimeout(timer);
   }
+}
+
+async function startDashboardLoad({ refresh = false } = {}) {
+  const probe = await probeApiOnBoot();
+  if (!probe.ok) {
+    state.loadStatus = "critical_error";
+    state.loadError = probe.message;
+    showError(probe.message);
+    el.meta.textContent = probe.code === "DATA_CONFIG" ? "Configuração incompleta" : "Erro de API";
+    renderFatalView(probe.message);
+    return;
+  }
+  ensureResearchBundle();
+  refreshSystemStatus();
+  loadData({ refresh });
 }
 
 function boot() {
@@ -3023,19 +3074,7 @@ function boot() {
   applyFiltersSticky();
   window.addEventListener("ha:report-result", (ev) => showReportToast(ev.detail));
   bind();
-  probeApiOnBoot().then((probe) => {
-    if (!probe.ok) {
-      state.loadStatus = "critical_error";
-      state.loadError = probe.message;
-      showError(probe.message);
-      el.meta.textContent = "Erro de API";
-      renderFatalView(probe.message);
-      return;
-    }
-    ensureResearchBundle();
-    refreshSystemStatus();
-    loadData();
-  });
+  startDashboardLoad();
 }
 
 window.addEventListener("error", (event) => {

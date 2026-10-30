@@ -50,9 +50,28 @@ test("Vercel — build espelha dist no cwd quando invocado fora da raiz (monorep
   assert.ok(existsSync(join(parent, "dist", "index.html")));
 });
 
-test("Vercel — rewrite SPA não captura /api", () => {
+test("Vercel — rewrite SPA não captura /api (sem rewrite identidade em /api)", () => {
   const cfg = JSON.parse(readFileSync(join(ROOT, "vercel.json"), "utf8"));
   const spa = cfg.rewrites?.find((r) => r.destination === "/index.html");
   assert.ok(spa?.source?.includes("api"));
-  assert.ok(cfg.rewrites?.some((r) => String(r.source).startsWith("/api/")));
+  const apiIdentity = cfg.rewrites?.some(
+    (r) => String(r.source).startsWith("/api/") && String(r.destination).startsWith("/api/"),
+  );
+  assert.equal(apiIdentity, false);
+});
+
+test("Vercel — resolveApiPathFromRequest usa req.url quando query.path vazio", async () => {
+  const { resolveApiPathFromRequest } = await import("../lib/api/dispatch-http-api.mjs");
+  assert.equal(
+    resolveApiPathFromRequest({ url: "/api/health?x=1", query: {} }),
+    "/api/health",
+  );
+  assert.equal(
+    resolveApiPathFromRequest({ url: "/api/predictive-lab-reference", query: {} }),
+    "/api/predictive-lab-reference",
+  );
+  assert.equal(
+    resolveApiPathFromRequest({ url: "/api/health-score", query: { path: ["health-score"] } }),
+    "/api/health-score",
+  );
 });
