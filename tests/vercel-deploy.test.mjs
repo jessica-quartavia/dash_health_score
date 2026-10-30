@@ -60,6 +60,14 @@ test("Vercel — rewrite SPA não captura /api (sem rewrite identidade em /api)"
   assert.equal(apiIdentity, false);
 });
 
+test("Vercel — rotas de sessão usam /api/session (não /api/auth reservado)", () => {
+  const dispatch = readFileSync(join(ROOT, "lib", "api", "dispatch-http-api.mjs"), "utf8");
+  assert.match(dispatch, /\/api\/session\/policy/);
+  assert.match(dispatch, /\/api\/session\/config/);
+  assert.match(dispatch, /\/api\/session\/me/);
+  assert.doesNotMatch(dispatch, /path === "\/api\/auth\/policy"/);
+});
+
 test("Vercel — resolveApiPathFromRequest usa req.url quando query.path vazio", async () => {
   const { resolveApiPathFromRequest } = await import("../lib/api/dispatch-http-api.mjs");
   assert.equal(

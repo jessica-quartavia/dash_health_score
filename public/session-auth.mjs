@@ -1,8 +1,9 @@
 /**
- * Sessão Google corporativa (Supabase Auth) — chaves publicáveis via /api/auth/config.
+ * Sessão Google corporativa (Supabase Auth) — config publicável via /api/session/config.
  */
 
 const SESSION_KEY = "ha:supabaseSession";
+const FETCH_TIMEOUT_MS = 20_000;
 
 let cachedClient = null;
 let cachedConfig = null;
@@ -42,9 +43,19 @@ export function authHeaders(extra = {}) {
   return { ...extra, Authorization: `Bearer ${token}` };
 }
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function loadAuthConfig() {
   if (cachedConfig) return cachedConfig;
-  const res = await fetch("/api/auth/config", { method: "GET" });
+  const res = await fetchWithTimeout("/api/session/config", { method: "GET" });
   const body = await res.json().catch(() => ({}));
   if (!res.ok || !body.url || !body.anonKey) {
     throw new Error(body.error || "Configuração de login indisponível.");
@@ -67,10 +78,32 @@ async function getSupabaseClient() {
   return cachedClient;
 }
 
+async function inferRequireAuthFromDataApi() {
+  try {
+    const res = await fetchWithTimeout("/api/health-score?cluster=ativos", {
+      method: "GET",
+      headers: { Accept: "application/json" },
+    });
+    if (res.status === 401) return true;
+    if (res.ok) return false;
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
 export async function fetchAuthPolicy() {
-  const res = await fetch("/api/auth/policy", { method: "GET", cache: "no-store" });
-  if (!res.ok) return { requireAuth: false, domain: "quartavia.com.br" };
-  return res.json();
+  try {
+    const res = await fetchWithTimeout("/api/session/policy", { method: "GET", cache: "no-store" });
+    if (res.ok) return res.json();
+  } catch {
+    /* timeout / rede */
+  }
+  const inferred = await inferRequireAuthFromDataApi();
+  if (inferred === true) {
+    return { requireAuth: true, domain: "quartavia.com.br", source: "health-score-probe" };
+  }
+  return { requireAuth: false, domain: "quartavia.com.br", source: "fallback" };
 }
 
 export async function completeOAuthIfPresent() {
@@ -90,15 +123,15 @@ export async function completeOAuthIfPresent() {
 
 export async function ensureCorporateSession({ onStatus } = {}) {
   const policy = await fetchAuthPolicy();
-  if (!policy.requireAuth) return { required: false, session: null };
+  if (!policy.requireAuth) return { required: false, session: null, policy };
 
   onStatus?.("Verificando sessão…");
   await completeOAuthIfPresent().catch(() => {});
 
   let session = readStoredSession();
   if (session) {
-    const me = await fetch("/api/auth/me", { headers: authHeaders() });
-    if (me.ok) return { required: true, session, email: (await me.json()).email };
+    const me = await fetchWithTimeout("/api/session/me", { headers: authHeaders() });
+    if (me.ok) return { required: true, session, email: (await me.json()).email, policy };
     clearStoredSession();
     session = null;
   }
@@ -127,4 +160,8 @@ export async function signInWithGoogleCorporate() {
 export async function signOutCorporate() {
   clearStoredSession();
   cachedClient = null;
+}
+
+export function isAuthErrorCode(code) {
+  return code === "AUTH_REQUIRED" || code === "AUTH_INVALID" || code === "AUTH_DOMAIN" || code === "AUTH_NOT_CONFIGURED";
 }

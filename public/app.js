@@ -55,6 +55,7 @@ import { validateHealthScorePayload } from "/lib/frontend/health-score-contract.
 import {
   authHeaders,
   ensureCorporateSession,
+  isAuthErrorCode,
   signInWithGoogleCorporate,
 } from "./session-auth.mjs";
 
@@ -2830,12 +2831,23 @@ async function loadData({ refresh = false } = {}) {
   el.meta.textContent = "Carregando…";
   const started = performance.now();
   try {
-    const { response, body } = await fetchJson(`/api/health-score?${queryParams({ refresh }).toString()}`);
+    const url = `/api/health-score?${queryParams({ refresh }).toString()}`;
+    bootDiag("loadData:fetch", { endpoint: "/api/health-score" });
+    const { response, body } = await fetchJson(url);
+    bootDiag("loadData:response", { status: response.status, ok: response.ok });
     if (!response.ok) {
+      if (isAuthErrorCode(body.code)) {
+        const msg = body.error || "Faça login com Google @quartavia.com.br.";
+        disarmBootWatchdog();
+        showAuthGate(msg);
+        showError(msg);
+        el.meta.textContent = "Login necessário";
+        state.loadStatus = "auth_required";
+        renderFatalView(msg, { retry: true });
+        return;
+      }
       const hint =
-        body.code === "AUTH_REQUIRED" || body.code === "AUTH_INVALID" || body.code === "AUTH_DOMAIN"
-          ? body.error || "Faça login com Google @quartavia.com.br."
-          : body.code === "DATA_CONFIG" || body.code === "DATA_CONFIG_INVALID"
+        body.code === "DATA_CONFIG" || body.code === "DATA_CONFIG_INVALID"
             ? "Configure DATA_SUPABASE_URL e DATA_SUPABASE_SERVICE_ROLE_KEY na Vercel (Production)."
             : body.code === "API_NOT_DEPLOYED"
               ? body.error
@@ -2846,7 +2858,10 @@ async function loadData({ refresh = false } = {}) {
     if (!contract.ok) {
       throw new Error(`Resposta incompleta da API (${contract.errors.join(", ")}).`);
     }
-    if (requestId !== state.requestId) return;
+    if (requestId !== state.requestId) {
+      bootDiag("loadData:stale", { requestId, active: state.requestId });
+      return;
+    }
     const qKey = queryParams().toString();
     const resetPage = refresh || qKey !== state.lastQueryKey;
     state.hs2aLabSnapshot = body.metadata?.hs2aLab || null;
@@ -2870,7 +2885,10 @@ async function loadData({ refresh = false } = {}) {
     loadMonitoringHistory().catch(() => {});
     safeRender();
   } catch (error) {
-    if (requestId !== state.requestId) return;
+    if (requestId !== state.requestId) {
+      bootDiag("loadData:stale", { requestId, active: state.requestId });
+      return;
+    }
     const message = error.name === "AbortError" ? "Tempo esgotado ao carregar dados. Tente novamente." : (error.message || "Falha ao carregar o dashboard.");
     state.loadError = message;
     state.loadStatus = state.payload ? "partial_error" : "critical_error";
@@ -3046,6 +3064,7 @@ async function refreshSystemStatus() {
 }
 
 async function probeApiOnBoot() {
+  bootDiag("probe:start", { endpoint: "/api/config-status" });
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), API_PROBE_TIMEOUT_MS);
   try {
@@ -3088,8 +3107,10 @@ async function probeApiOnBoot() {
         code: body.code || "API_ERROR",
       };
     }
+    bootDiag("probe:ok", { status: res.status, ready: body.ready });
     return { ok: true, configStatus: body };
   } catch (error) {
+    bootDiag("probe:fail", { name: error.name, message: error.message });
     if (error.name === "AbortError") {
       return {
         ok: false,
