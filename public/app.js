@@ -1,17 +1,91 @@
 import { mountPeriodPicker } from "./period-picker.mjs";
 import { paginate, pagerHtml, bindPager, DEFAULT_PAGE_SIZE } from "./table-ui.mjs";
 import { tipIcon, bindTipTriggers } from "./tooltips.mjs";
-import { applyWeightsToPayload } from "/lib/frontend/weight-recompute.mjs";
+import { applyWeightsToPayload, snapshotFromClients } from "/lib/frontend/weight-recompute.mjs";
+import { renderHealthEvolutionPage, bindHealthEvolutionPage } from "./health-evolution.mjs";
+import { openHealthEvolutionReport, openPredictiveExecutiveReport } from "./executive-report.mjs";
+import {
+  buildHealthComposition,
+  buildProgramHealthStats,
+  buildEpHealthStats,
+  filterAccompanimentRows,
+  accompanimentDefaultRows,
+  primaryObservedFactor,
+  E_BANDS,
+  M_BANDS,
+  HEALTH_LEVEL_ORDER,
+} from "/lib/frontend/health-evolution-analytics.mjs";
+import {
+  balancePanelHtml,
+  bindBalancePanel,
+  paintBalancePanel,
+  globalWeightBadgeHtml,
+} from "./hs-balance.mjs";
+import { weightsFromEngagement } from "/lib/frontend/hs-weight.mjs";
+import { describeCorrelation } from "/lib/frontend/correlation-copy.mjs";
+import {
+  PORTFOLIO_COLUMNS,
+  loadVisibleColumnIds,
+  saveVisibleColumnIds,
+  resolvePortfolioCell,
+} from "./portfolio-columns.mjs";
+import { mountClientProfile } from "./client-profile.mjs";
+import { bindClientDrawer, openClientDrawer } from "./client-drawer.mjs";
+import { hsScoreBarHtml } from "/lib/frontend/hs-score-bar.mjs";
+import { loadSystemStatus, mountSystemBanners } from "./system-banners.mjs";
+import {
+  shouldRefetchOnEnterResearch,
+  shouldRefetchOnLeaveResearch,
+} from "/lib/frontend/view-registry.mjs";
+import {
+  ANALYTICAL_COLUMNS,
+  ANALYTICAL_GROUPS,
+  loadAnalyticalColumnIds,
+  saveAnalyticalColumnIds,
+  resolveAnalyticalCell,
+  analyticalSortValue,
+  formatAnalyticalCellHtml,
+} from "./analytical-columns.mjs";
+import { analyticalRowsToCsv } from "/lib/frontend/analytical-csv.mjs";
+import { renderResearchPanorama } from "./research-panorama.mjs";
+import { renderResearchLabHow } from "./research-lab-how.mjs";
+import { renderResearchLabModel } from "./research-lab-model.mjs";
+import { fetchJsonArtifact } from "/lib/http/fetch-json.mjs";
 
 const VIEWS = {
-  overview: ["Painel executivo", "Visão Geral"],
-  health: ["Score experimental", "Health Score"],
-  engagement: ["Relacionamento", "Engajamento"],
-  mechanisms: ["Cobertura", "Mecanismos"],
-  nps: ["Associação, não causalidade", "NPS e Correlações"],
-  base: ["Explorador", "Base Analítica"],
-  research: ["Pesquisa histórica", "Pesquisa Preditiva"],
-  quality: ["Qualidade informacional", "Qualidade e Monitoramento"],
+  overview: ["Principal", "Visão Geral"],
+  portfolio: ["Carteira", "Carteira de Clientes"],
+  health: ["Health Score", "Health Score"],
+  evolution: ["Evolução", "Saúde e Evolução"],
+  engagement: ["Análises", "Engajamento"],
+  mechanisms: ["Análises", "Mecanismos"],
+  nps: ["Análises", "NPS e Correlações"],
+  quality: ["Análises", "Qualidade dos Dados"],
+  research: ["Pesquisa", "Laboratório Preditivo"],
+  base: ["Pesquisa", "Base Analítica"],
+};
+
+const RESEARCH_TAB_ALIASES = {
+  panorama: "panorama",
+  hsfuture: "hsfuture",
+  how: "how",
+  model: "model",
+  methodology: "how",
+  intro: "how",
+  study: "how",
+  limitations: "model",
+  study2: "model",
+  v2: "model",
+  diagnostic: "model",
+  study15: "model",
+  study16: "model",
+  v16: "model",
+  churn: "model",
+  validation: "model",
+  modeling: "model",
+  weights: "model",
+  advanced: "model",
+  audit: "model",
 };
 
 const ICONS = {
@@ -23,6 +97,8 @@ const ICONS = {
   table: '<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M10 10v9"/></svg>',
   study: '<svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 16v-4"/><path d="M12 16V8"/><path d="M16 16v-6"/></svg>',
   shield: '<svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V6l-8-3Z"/></svg>',
+  briefcase: '<svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  trend: '<svg viewBox="0 0 24 24"><path d="M4 18h16"/><path d="m6 16 4-6 4 3 5-9"/></svg>',
 };
 
 const PIN_KEY = "healthScorePinnedFilters";
@@ -40,7 +116,11 @@ const state = {
   weights: { engagement: 50, mechanism: 50 },
   pinned: true,
   filters: { search: "", from: "", to: "", program: "all", ep: "all", finalClass: "all", cluster: "ativos" },
-  sort: { key: "healthScore", dir: "asc" },
+  sort: { key: "clientName", dir: "asc" },
+  tableSort: {
+    portfolio: { key: "clientName", dir: "asc" },
+    base: { key: "clientName", dir: "asc" },
+  },
   page: 1,
   pageSize: DEFAULT_PAGE_SIZE,
   qualityPage: 1,
@@ -49,7 +129,32 @@ const state = {
   monitoringHistory: null,
   monitoringHistoryFetched: false,
   selectedId: null,
-  researchTab: "study",
+  researchTab: "panorama",
+  researchPanorama: null,
+  researchPanoramaQuery: "",
+  predictiveLabPack: null,
+  predictiveLabPackLoaded: false,
+  portfolioColumnIds: loadVisibleColumnIds(),
+  baseColumnIds: loadAnalyticalColumnIds(),
+  baseSearch: "",
+  systemStatus: null,
+  hsFutureFeasible: false,
+  evolutionRequestId: 0,
+  evolutionPage: 1,
+  evolutionSummary: null,
+  evolutionSummaryKey: "",
+  evolutionLocalFilters: {
+    search: "",
+    healthLevel: "all",
+    program: "all",
+    ep: "all",
+    quality: "all",
+    engagement: "all",
+    mechanism: "all",
+  },
+  lastQueryKey: "",
+  lastRenderMs: null,
+  portfolioColumnsOpen: false,
   researchPopulation: "total",
   predictiveReadiness: null,
   readinessLoaded: false,
@@ -72,6 +177,7 @@ const state = {
 };
 
 let periodPicker = null;
+let qualityRequestId = 0;
 
 const API_TIMEOUT_MS = 120_000;
 
@@ -92,6 +198,8 @@ const el = {
   pin: document.getElementById("fPin"),
   dialog: document.getElementById("detailDialog"),
   scoreSlot: document.getElementById("scoreSlot"),
+  hsWeightBadge: document.getElementById("hsWeightBadge"),
+  systemBanners: document.getElementById("systemBanners"),
 };
 
 function escapeHtml(value) {
@@ -100,6 +208,37 @@ function escapeHtml(value) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+let toastTimer = null;
+function showReportToast(result) {
+  const node = document.getElementById("appToast");
+  if (!node) return;
+  clearTimeout(toastTimer);
+  if (!result?.ok) {
+    node.textContent = result?.error || "Não foi possível gerar o relatório.";
+    node.className = "app-toast is-error";
+  } else {
+    node.textContent =
+      result.method === "download+preview"
+        ? "Relatório baixado e aberto — use Imprimir → Salvar como PDF."
+        : "Relatório baixado — abra o arquivo HTML e use Imprimir → Salvar como PDF.";
+    node.className = "app-toast is-success";
+  }
+  node.hidden = false;
+  toastTimer = setTimeout(() => {
+    node.hidden = true;
+  }, 7000);
+}
+
+function syncSidebarToggleUi() {
+  const collapsed = el.shell?.classList.contains("collapsed");
+  const btn = document.getElementById("btnCollapse");
+  if (!btn) return;
+  btn.setAttribute("aria-expanded", String(!collapsed));
+  btn.setAttribute("aria-label", collapsed ? "Expandir menu" : "Recolher menu");
+  const label = btn.querySelector(".sidebar-toggle-label");
+  if (label) label.textContent = collapsed ? "Expandir" : "Recolher menu";
 }
 
 function tone(label) {
@@ -140,13 +279,32 @@ function clients() {
   return state.payload?.clients || [];
 }
 
+function filteredSnapshot() {
+  const rows = clients();
+  if (!rows.length) return { summary: {}, healthDistribution: [] };
+  return snapshotFromClients(rows, state.weights);
+}
+
 function readStoredWeights() {
   try {
     const stored = JSON.parse(localStorage.getItem(WEIGHT_KEY) || "{}");
-    const engagement = Math.max(0, Math.min(100, Math.round(Number(stored.engagement))));
-    const mechanism = Math.max(0, Math.min(100, Math.round(Number(stored.mechanism))));
-    if (engagement + mechanism === 100) state.weights = { engagement, mechanism };
+    const engagement = Number(stored.engagement);
+    const mechanism = Number(stored.mechanism);
+    if (Number.isFinite(engagement) && Number.isFinite(mechanism) && engagement + mechanism === 100) {
+      state.weights = weightsFromEngagement(engagement);
+    }
   } catch { /* pesos padrão */ }
+}
+
+function applyFiltersSticky() {
+  const bar = document.getElementById("filtersBar");
+  if (bar) bar.classList.toggle("is-sticky", state.pinned);
+}
+
+function envWarningText(w) {
+  if (typeof w === "string") return w;
+  if (w && typeof w.message === "string") return w.message;
+  return String(w ?? "");
 }
 
 function readPin() {
@@ -193,7 +351,7 @@ function updateFilterNote() {
   if (!node) return;
   if (state.view === "research") {
     node.textContent =
-      "Pesquisa Preditiva: a população do estudo é escolhida na própria página (padrão Total). O filtro Status acima não se aplica aqui. Demais filtros (programa, EP, busca) continuam válidos.";
+      "Laboratório Preditivo: população do estudo na própria página (padrão Total). Filtro Status não se aplica aqui.";
     if (el.cluster) el.cluster.closest(".field")?.classList.add("muted-field");
   } else {
     node.textContent =
@@ -282,8 +440,9 @@ function hBarMetrics(rows, { labelKey = "label", valueKey = "value", max: maxIn,
     .join("")}</div>`;
 }
 
-function card(title, subtitle, body) {
-  return `<article class="card"><h2>${escapeHtml(title)}</h2><p class="sub">${escapeHtml(subtitle || "")}</p>${body}</article>`;
+function card(title, subtitle, body, { htmlTitle = false } = {}) {
+  const head = htmlTitle ? title : escapeHtml(title);
+  return `<article class="card"><h2>${head}</h2><p class="sub">${escapeHtml(subtitle || "")}</p>${body}</article>`;
 }
 
 function bars(rows, valueKey = "percent") {
@@ -370,9 +529,13 @@ function badge(label) {
   return `<span class="badge ${tone(label)}">${escapeHtml(label || "—")}</span>`;
 }
 
-function table(headers, rowsHtml, { compact = false, sticky = false } = {}) {
-  const cls = ["table-wrap", compact ? "table-compact" : "", sticky ? "table-sticky" : ""].filter(Boolean).join(" ");
+function table(headers, rowsHtml, { compact = false, sticky = false, scrollY = false } = {}) {
+  const cls = ["table-wrap", compact ? "table-compact" : "", sticky ? "table-sticky" : "", scrollY ? "" : "table-flat"].filter(Boolean).join(" ");
   return `<div class="${cls}"><table><thead><tr>${headers}</tr></thead><tbody>${rowsHtml || `<tr><td colspan="12"><span class="empty">Sem dados no recorte.</span></td></tr>`}</tbody></table></div>`;
+}
+
+function hsScoreCell(row) {
+  return hsScoreBarHtml(row, { escapeHtml, formatNum, weights: state.weights });
 }
 
 function distribution(payload, key) {
@@ -494,14 +657,136 @@ function evidence(sample, value) {
   return "Associativa — não indica causa.";
 }
 
+function tableViewKey() {
+  return state.view === "base" ? "base" : "portfolio";
+}
+
+function getTableSort() {
+  const key = tableViewKey();
+  return state.tableSort[key] || state.tableSort.portfolio;
+}
+
+function setTableSort(sort) {
+  const key = tableViewKey();
+  state.tableSort[key] = sort;
+  state.sort = sort;
+}
+
+function compareSortValues(av, bv) {
+  const an = Number(av);
+  const bn = Number(bv);
+  if (Number.isFinite(an) && Number.isFinite(bn)) return an - bn;
+  if (av == null && bv == null) return 0;
+  if (av == null) return 1;
+  if (bv == null) return -1;
+  return String(av ?? "").localeCompare(String(bv ?? ""), "pt-BR");
+}
+
+function sortedRowsForTable(viewKey, rowBuilder) {
+  const sort = state.tableSort[viewKey] || state.tableSort.portfolio;
+  let rows = rowBuilder();
+  const sortKey = sort.key;
+  rows.sort((a, b) => {
+    let av;
+    let bv;
+    if (viewKey === "base") {
+      const col = ANALYTICAL_COLUMNS.find((c) => c.sortKey === sortKey || c.id === sortKey);
+      const id = col?.id || sortKey;
+      av = analyticalSortValue(a, id);
+      bv = analyticalSortValue(b, id);
+    } else {
+      av = resolvePortfolioCell(a, sortKey === "healthScore" ? "healthScore" : sortKey);
+      bv = resolvePortfolioCell(b, sortKey === "healthScore" ? "healthScore" : sortKey);
+    }
+    const cmp = compareSortValues(av, bv);
+    return sort.dir === "asc" ? cmp : -cmp;
+  });
+  return rows;
+}
+
+function neighborClientIds(viewKey) {
+  const rows =
+    viewKey === "base"
+      ? sortedRowsForTable("base", () => filterBaseRows([...clients()]))
+      : sortedRowsForTable("portfolio", () => [...clients()].map((row) => ({ ...row })));
+  return rows.map((r) => String(r.clientId));
+}
+
+function bindTableRowClicks(root, { viewKey = "portfolio" } = {}) {
+  root.querySelectorAll("tr[data-client]").forEach((row) => {
+    row.addEventListener("click", (ev) => {
+      if (ev.target.closest("a, button, input, select, summary, label")) return;
+      openDetail(row.dataset.client, { viewKey });
+    });
+  });
+}
+
+function renderAnalyticalTd(row, columnId, helpers) {
+  if (columnId === "finalClass") return `<td>${badge(row.finalClass)}</td>`;
+  if (columnId === "clientName") {
+    return `<td><span class="cell-primary">${escapeHtml(String(row.clientName ?? "—"))}</span></td>`;
+  }
+  if (columnId === "clientCode") {
+    return `<td><span class="muted-code">${escapeHtml(String(row.clientCode ?? "—"))}</span></td>`;
+  }
+  const cell = formatAnalyticalCellHtml(row, columnId, helpers, { hsScoreCell });
+  if (typeof cell === "string") {
+    const num = columnId === "healthScore" || typeof analyticalSortValue(row, columnId) === "number";
+    return `<td class="${num ? "num" : ""}">${cell}</td>`;
+  }
+  if (cell.kind === "zero") return `<td class="num"><span class="val-zero">${cell.text}</span></td>`;
+  if (cell.kind === "na") return `<td><span class="val-na" title="Não aplicável">n/a</span></td>`;
+  if (cell.kind === "missing") return `<td><span class="val-missing" title="Não informado">—</span></td>`;
+  const num = typeof analyticalSortValue(row, columnId) === "number";
+  return `<td class="${num ? "num" : ""}">${escapeHtml(cell.text)}</td>`;
+}
+
+function renderHs5050Explainer() {
+  const study = state.researchBundle?.data?.hsWeightStudy;
+  const rec = study?.recommendation?.summaryPlain
+    || "50/50 permanece referência oficial V1 — grid exploratório não substitui validação independente.";
+  const weightBars = (study?.grid || [])
+    .filter((g) => g.rocAucTest != null)
+    .slice(0, 21)
+    .map((g) => ({
+      label: `${g.engagementPercent}/${g.mechanismPercent}${g.official ? " ★" : ""}`,
+      count: g.rocAucTest,
+      percent: g.rocAucTest * 100,
+      meta: `ROC ${formatNum(g.rocAucTest, 3)} · PR ${formatNum(g.prAucTest, 3)}`,
+    }));
+  return `
+    <section class="card hs-5050-card">
+      <h2 class="section-heading">Por que usamos 50/50?</h2>
+      <p class="page-lead-text">O Health Score combina <strong>Engajamento (E)</strong> e <strong>Mecanismos (M)</strong> implantados. Fórmula oficial documentada: <span class="formula-inline">HS = 0,50 × E + 0,50 × M</span>.</p>
+      <ul class="plain-list">
+        <li>50/50 é referência <strong>equilibrada e interpretável</strong> — não é a melhor combinação estatística comprovada.</li>
+        <li>O estudo de churn usa HS congelado na exportação; <strong>não se confunde</strong> com os coeficientes dos modelos logísticos.</li>
+        <li>O slider no topo do painel é <strong>simulação</strong> — não altera o indicador oficial nem a BASE QV.</li>
+        <li>Exploração das 21 ponderações: hold-out jun/2026 já usado — sem nova ponderação ótima sem validação independente.</li>
+      </ul>
+      <p class="sub">${escapeHtml(rec)}</p>
+      ${weightBars.length ? `<h3 class="section-heading-sm">Estudo exploratório das ponderações (ROC-AUC no teste congelado)</h3>${bars(weightBars, "count")}` : `<p class="note">Execute <code>npm run research:hs-weights</code> para carregar hs_weight_study.json.</p>`}
+    </section>`;
+}
+
 function comparisonTable(stats) {
   const body = stats.map((item) => `<tr><td>${escapeHtml(item.label)}</td><td class="num">${fmt.format(item.count)}</td><td class="num">${formatNum(item.avgScore)}</td><td class="num">${formatNum(item.avgEngagement, 2)}</td><td class="num">${pctFmt.format(item.coverage)}%</td></tr>`).join("");
   return table("<th>Grupo</th><th class='num'>Clientes</th><th class='num'>Score médio</th><th class='num'>Reuniões/mês</th><th class='num'>Cobertura M</th>", body);
 }
 
+function overviewPageLead() {
+  return `
+    <section class="page-lead">
+      <h2 class="page-lead-title">Resumo executivo do recorte</h2>
+      <p class="page-lead-text">Esta página mostra <strong>quantos clientes</strong> você está vendo, o <strong>Health Score médio</strong>, engajamento e mecanismos — e onde estão os casos que pedem atenção. Use a barra acima para simular outros pesos entre E e M (experimental).</p>
+    </section>`;
+}
+
 function renderOverview(payload) {
   const rows = clients();
-  const summary = payload.summary || {};
+  const snap = filteredSnapshot();
+  const summary = snap.summary || payload.summary || {};
+  const healthDist = snap.healthDistribution || distribution(payload, "health");
   const mgr = payload.hs2aManagerial || {};
   const avgEngagement = mean(rows, "avgMeetingsPerMonth");
   const withMechanism = rows.filter((row) => (row.implementedCount || 0) > 0).length;
@@ -517,122 +802,84 @@ function renderOverview(payload) {
     )
     .join("");
   el.view.innerHTML = `
-    <section class="grid kpis kpis-5">
-      ${kpi("Clientes no recorte", fmt.format(rows.length), summary.totalClients ? `de ${fmt.format(summary.totalClients)} após filtros` : "Recorte atual")}
-      ${kpi("HS médio (V1)", formatNum(summary.averageScore), payload.weights?.formula || "50/50 experimental", "", "hs_medio")}
-      ${kpi("Engajamento", avgEngagement == null ? "—" : formatNum(avgEngagement, 2), "Reuniões/mês · histórico completo", "", "engajamento")}
-      ${kpi("Cobertura M", `${pctFmt.format(coverage)}%`, `${fmt.format(withMechanism)} com implantado`, "", "mecanismos")}
+    ${overviewPageLead()}
+    <section class="grid kpis kpis-6">
+      ${kpi("Clientes no recorte", fmt.format(rows.length), summary.totalClients ? `de ${fmt.format(summary.totalClients)} após filtros` : "Quem entra nos filtros abaixo")}
+      ${kpi("Score médio", formatNum(summary.averageScore), payload.weights?.formula || "Pesos experimentais atuais", "", "hs_medio")}
+      ${kpi("Engajamento médio", avgEngagement == null ? "—" : formatNum(avgEngagement, 2), "Reuniões válidas por mês (E)", "", "engajamento")}
+      ${kpi("Cobertura de mecanismos", `${pctFmt.format(coverage)}%`, `${fmt.format(withMechanism)} clientes com implantado`, "", "mecanismos")}
       ${kpi("Atenção + crítico", fmt.format((summary.attention || 0) + (summary.critical || 0)), "Fora de implantação", "attention", "hs_faixa")}
+      ${kpi("Em implantação", fmt.format(summary.implanting || 0), `${pctFmt.format(summary.implantingPercent || 0)}% do recorte`, "neutral")}
     </section>
-    <section class="grid cards-2">
-      ${card("Distribuição HS (V1)", "Classificação operacional — leitura rápida", stackShareChart(distribution(payload, "health")) + bars(distribution(payload, "health")))}
-      ${card("Histograma HS", "Faixas de 10 pontos", bars(histogram(rows), "count"))}
+    <section class="view-section">
+      <h2 class="section-heading">Distribuição e classificação</h2>
+      <p class="section-sub">O que estou vendo? Quantos clientes estão saudáveis, em atenção ou críticos — e como o score se espalha.</p>
+      <div class="grid cards-2">
+        ${card("Health Score por faixa", "Barras = quantidade de clientes", stackShareChart(healthDist) + bars(healthDist))}
+        ${card("Classificação operacional", "Regras da BASE QV (responde aos pesos E/M)", bars(healthDist))}
+      </div>
     </section>
-    <section class="grid cards-2">
-      ${card("Engajamento (E)", "Nota por faixa", bars(distribution(payload, "engagement")))}
-      ${card("Mecanismos (M)", "Nota por faixa", bars(distribution(payload, "mechanism")))}
+    <section class="view-section">
+      <h2 class="section-heading">Detalhe do score</h2>
+      <div class="grid cards-2">
+        ${card("Histograma do score", "Faixas de 10 pontos (0–100)", bars(histogram(rows), "count"))}
+        ${card("Componente E (engajamento)", "Nota 0–100 por cadência de reuniões", bars(distribution(payload, "engagement")))}
+        ${card("Componente M (mecanismos)", "Nota 0–100 por mecanismos implantados", bars(distribution(payload, "mechanism")))}
+        ${card(`Perfis 2.0A ${tipIcon("perfil_2a")}`, "Leitura interpretativa — não é alerta automático", managerialBars(mgr.perfisExclusivos, "label"), { htmlTitle: true })}
+        ${card(`Qualidade dos dados ${tipIcon("qualidade_info")}`, "Histórico confiável vs lacunas cadastrais", managerialBars(mgr.qualidadeInformacional, "categoria"), { htmlTitle: true })}
+      </div>
     </section>
-    <section class="grid cards-2">
-      ${card("Perfis 2.0A", "Interpretação — não é risco automático", managerialBars(mgr.perfisExclusivos, "label"))}
-      ${card("Qualidade informacional", "Separada do HS numérico", managerialBars(mgr.qualidadeInformacional, "categoria"))}
+    <section class="view-section">
+      <h2 class="section-heading">Comparativos e alertas</h2>
+      <div class="grid cards-2">
+        ${card("Por programa", "Média de score, reuniões e cobertura M", comparisonTable(groupStats(rows, "program")))}
+        ${card("Por engenheiro (EP)", "Carteiras podem ter composições diferentes", comparisonTable(groupStats(rows, "engineer")))}
+        ${card("Entrada na carteira", cohorts.length > 1 ? "Novos clientes por mês (filtro de período)" : "Poucos meses no recorte", cohorts.length > 1 ? columnChart(cohorts) : `<p class="empty">Sem série mensal de entradas.</p>`)}
+        ${card("Principais alertas", "Crítico, Atenção ou Sem registro", table("<th>Cliente</th><th>EP</th><th>Classe</th><th class='num'>HS</th><th>Motivo</th>", attentionBody || "<tr><td colspan='5'>Nenhum cliente nestas faixas.</td></tr>"))}
+      </div>
     </section>
-    <section class="grid cards-2">
-      ${card("Por programa", "Score, cadência e cobertura M", comparisonTable(groupStats(rows, "program")))}
-      ${card("Por EP", "Composição de carteira pode variar", comparisonTable(groupStats(rows, "engineer")))}
+    ${card("Clientes no recorte", "Clique na linha para abrir detalhes · HS do menor para o maior", table("<th>Cliente</th><th>Programa</th><th class='num'>HS</th><th>Perfil 2.0A</th><th>Classe</th>", topBody || "<tr><td colspan='5'>Sem clientes.</td></tr>"))}
+    <section class="how-to-read">
+      <h2 class="section-heading">Como ler esta página</h2>
+      <p>Comece pelos <strong>cartões no topo</strong> (volume, score médio, alertas). Depois veja a <strong>distribuição</strong> e, se precisar, a tabela de clientes. A barra de balanceamento recalcula o HS na hora — é simulação, não previsão de cancelamento.</p>
     </section>
-    <section class="grid cards-2">
-      ${card("Entrada na carteira", cohorts.length > 1 ? "Clientes por mês de entrada (filtro de período)" : "Poucos meses no recorte", cohorts.length > 1 ? columnChart(cohorts) : `<p class="empty">Sem série mensal de entradas.</p>`)}
-      ${card("Prioridade de revisão", "Crítico, Atenção ou Sem registro", table("<th>Cliente</th><th>EP</th><th>Classe</th><th class='num'>HS</th><th>Critério</th>", attentionBody || "<tr><td colspan='5'>Nenhum cliente nestas faixas.</td></tr>"))}
-    </section>
-    ${card("Clientes no recorte", "Clique para detalhe · ordenado por HS crescente", table("<th>Cliente</th><th>Programa</th><th class='num'>HS</th><th>Perfil 2.0A</th><th>Classe</th>", topBody || "<tr><td colspan='5'>Sem clientes.</td></tr>"))}
   `;
   el.view.querySelectorAll("[data-client]").forEach((row) => row.addEventListener("click", () => openDetail(row.dataset.client)));
 }
 
-function weightLabel(value) {
-  return (value / 100).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 });
+function updateGlobalWeightBadge() {
+  if (!el.hsWeightBadge) return;
+  const show = state.view !== "research" && state.view !== "quality";
+  el.hsWeightBadge.hidden = !show;
+  if (show) el.hsWeightBadge.textContent = globalWeightBadgeHtml(state.weights);
 }
 
-function formulaText() {
-  return `HS = (E × ${weightLabel(state.weights.engagement)}) + (M × ${weightLabel(state.weights.mechanism)})`;
-}
-
-function scorePanel() {
-  const presets = [
-    [50, "Equilibrado"],
-    [70, "Mais engajamento"],
-    [30, "Mais mecanismos"],
-  ];
-  return `
-    <section class="score-panel" aria-label="Configuração do Health Score">
-      <div class="score-head">
-        <div>
-          <h2>Configuração do Health Score</h2>
-          <p class="sub">Ajuste o peso dos componentes para recalcular o score experimental. Os pesos sempre somam 100%.</p>
-        </div>
-        <span class="score-badge alert-experimental-tag">Score experimental — não é previsão validada de churn</span>
-      </div>
-      <p class="formula" id="scoreFormula">${escapeHtml(formulaText())}</p>
-      <div class="weights">
-        <label>Engajamento <span id="engLabel">${state.weights.engagement}%</span>
-          <input id="wEngagement" type="range" min="0" max="100" step="5" value="${state.weights.engagement}" aria-label="Peso de engajamento" />
-        </label>
-        <label>Mecanismos <span id="mecLabel">${state.weights.mechanism}%</span>
-          <input id="wMechanism" type="range" min="0" max="100" step="5" value="${state.weights.mechanism}" aria-label="Peso de mecanismos" />
-        </label>
-      </div>
-      <div class="presets">
-        ${presets.map(([value, label]) => `<button type="button" class="preset ${state.weights.engagement === value ? "active" : ""}" data-preset="${value}">${escapeHtml(label)}</button>`).join("")}
-      </div>
-    </section>`;
-}
-
-function scoreStrip() {
-  return `
-    <button type="button" class="score-strip" data-goto="health">
-      <span><strong>${escapeHtml(formulaText())}</strong><br><span class="sub">Score experimental. Abra Health Score para ajustar os pesos.</span></span>
-      <span class="score-badge">Ajustar pesos</span>
-    </button>`;
-}
-
-function paintScorePanel() {
-  const formula = document.getElementById("scoreFormula");
-  const eng = document.getElementById("engLabel");
-  const mec = document.getElementById("mecLabel");
-  const engRange = document.getElementById("wEngagement");
-  const mecRange = document.getElementById("wMechanism");
-  if (formula) formula.textContent = formulaText();
-  if (eng) eng.textContent = `${state.weights.engagement}%`;
-  if (mec) mec.textContent = `${state.weights.mechanism}%`;
-  if (engRange && document.activeElement !== engRange) engRange.value = String(state.weights.engagement);
-  if (mecRange && document.activeElement !== mecRange) mecRange.value = String(state.weights.mechanism);
-  document.querySelectorAll("[data-preset]").forEach((button) => {
-    button.classList.toggle("active", Number(button.dataset.preset) === state.weights.engagement);
-  });
-}
-
-function bindScoreControls(root) {
-  root.querySelector("#wEngagement")?.addEventListener("input", (event) => setWeights("engagement", event.target.value));
-  root.querySelector("#wMechanism")?.addEventListener("input", (event) => setWeights("mechanism", event.target.value));
-  root.querySelectorAll("[data-preset]").forEach((button) => {
-    button.addEventListener("click", () => setWeights("engagement", button.dataset.preset));
-  });
-  root.querySelector("[data-goto]")?.addEventListener("click", () => {
-    const button = document.querySelector('.nav-btn[data-view="health"]');
-    button?.click();
-  });
+function refreshSystemBannersForView() {
+  if (!el.systemBanners) return;
+  if (state.view === "quality" && state.systemStatus) {
+    mountSystemBanners(el.systemBanners, state.systemStatus);
+  } else {
+    el.systemBanners.innerHTML = "";
+    el.systemBanners.hidden = true;
+  }
 }
 
 function renderScoreSlot() {
   if (!el.scoreSlot) return;
+  updateGlobalWeightBadge();
   if (!state.payload || (state.view !== "health" && state.view !== "overview")) {
     el.scoreSlot.innerHTML = "";
     el.scoreSlot.hidden = true;
     return;
   }
   el.scoreSlot.hidden = false;
-  el.scoreSlot.innerHTML = state.view === "health" ? scorePanel() : scoreStrip();
-  bindScoreControls(el.scoreSlot);
+  const needsMount = !el.scoreSlot.querySelector("#hsBalance");
+  if (needsMount) {
+    el.scoreSlot.innerHTML = balancePanelHtml(state.weights);
+    bindBalancePanel(el.scoreSlot, { onEngagementChange: (value) => setWeights(value) });
+  } else {
+    paintBalancePanel(el.scoreSlot, state.weights);
+  }
 }
 
 function managerialBars(items, labelKey = "label") {
@@ -664,7 +911,18 @@ function renderHealth(payload) {
     .map((a) => `<tr><td>${escapeHtml(a.id.replace(/_/g, " "))}</td><td class="num">${fmt.format(a.count)}</td><td class="num">${pctFmt.format(a.percent || 0)}%</td></tr>`)
     .join("");
   el.view.innerHTML = `
-    ${alertBox("experimental", "Health Score interativo", `<p>Os sliders acima recalculam E/M nesta página (média, faixas, ranking). Fórmula oficial documentada permanece 50/50 — isto é exploração, não modelo de churn.</p>`)}
+    <section class="page-lead">
+      <div class="page-lead-row">
+        <div>
+          <h2 class="page-lead-title">Health Score no recorte atual</h2>
+          <p class="page-lead-text">Ajuste a barra acima para ver como o score muda ao dar mais peso a <strong>reuniões (E)</strong> ou a <strong>mecanismos (M)</strong>. Tudo abaixo atualiza na hora. A fórmula oficial documentada na pesquisa permanece 50/50 — isto é exploração visual.</p>
+        </div>
+        <div class="page-lead-actions">
+          <button type="button" class="btn ghost sm" id="btnHealthCsv">Exportar CSV</button>
+          <button type="button" class="btn ghost sm" id="btnHealthGerencialCsv">CSV gerencial 2.0A</button>
+        </div>
+      </div>
+    </section>
     <section class="grid kpis kpis-6">
       ${kpi("Clientes analisados", fmt.format(summary.totalClients || 0), "Mesmos filtros abaixo")}
       ${kpi("Score médio V1", formatNum(summary.averageScore), payload.weights?.formula || "50/50", "", "hs_medio")}
@@ -699,17 +957,17 @@ function renderHealth(payload) {
       ${card("Comparativo — faixa HS", "Descritivo no recorte", hs2aCompareTable(cmp.faixaHs))}
     </section>
     ${card("Por EP (referência)", "Sem ranking de desempenho — diferenças de carteira", comparisonTable(groupStats(rows, "engineer")))}
-    <section class="grid cards-2">
-      ${card("Ranking interpretado", "Clique para detalhe 2.0A", table("<th>Cliente</th><th>Programa</th><th class='num'>HS</th><th>Perfil</th><th>Qualidade</th><th>Classe</th>", tableBody))}
-      <div class="card">
-        <h3>Exportação</h3>
-        <p class="sub">CSV gerencial inclui campos 2.0A no recorte filtrado.</p>
-        <button type="button" class="btn" id="btnGerencialCsv">Exportar visão gerencial</button>
-      </div>
-    </section>
+    ${renderHs5050Explainer()}
+    ${card("Ranking interpretado", "Clique para detalhe 2.0A", table("<th>Cliente</th><th>Programa</th><th class='num'>HS</th><th>Perfil</th><th>Qualidade</th><th>Classe</th>", tableBody))}
   `;
   el.view.querySelectorAll("[data-client]").forEach((row) => row.addEventListener("click", () => openDetail(row.dataset.client)));
-  document.getElementById("btnGerencialCsv")?.addEventListener("click", downloadGerencialCsv);
+  document.getElementById("btnHealthCsv")?.addEventListener("click", downloadCsv);
+  document.getElementById("btnHealthGerencialCsv")?.addEventListener("click", downloadGerencialCsv);
+  if (!state.researchBundleLoaded) {
+    ensureResearchBundle().then(() => {
+      if (state.view === "health") renderHealth(payload);
+    });
+  }
 }
 
 async function fetchMonitoringSummary() {
@@ -801,11 +1059,54 @@ async function loadMonitoringHistory() {
   }
 }
 
+function renderQualitySummaryError(err, reqId) {
+  if (reqId !== qualityRequestId || state.view !== "quality") return;
+  const hist = state.monitoringHistory;
+  const histBlock =
+    hist && !hist.ok
+      ? alertBox("warning", "Histórico Business Data", `<p>${escapeHtml(hist.error || "Indisponível.")}</p>`)
+      : hist?.ok
+        ? alertBox("info", "Histórico Business Data", `<p>${fmt.format(hist.runs?.length || 0)} execuções válidas consultadas.</p>`)
+        : "";
+  el.view.innerHTML = `
+    <section class="card error-state">
+      <h2>Qualidade e Monitoramento</h2>
+      <p>${escapeHtml(qualityErrorMessage(err))}</p>
+      <p class="sub">Diagnósticos operacionais dependem do snapshot ao vivo; falha no histórico persistido não impede revisão quando a BASE QV responde.</p>
+      ${histBlock}
+      <button type="button" class="btn" id="retryQuality">Tentar novamente</button>
+    </section>`;
+  document.getElementById("retryQuality")?.addEventListener("click", () => {
+    state.monitoringLoaded = false;
+    renderQuality();
+  });
+}
+
 function renderQuality() {
-  el.view.innerHTML = skeleton();
-  Promise.all([loadMonitoringHistory(), fetchMonitoringSummary()])
-    .then(([, mon]) => {
-      try {
+  const reqId = ++qualityRequestId;
+  const cacheKey = queryParams().toString();
+  if (state.monitoringLoaded && state.monitoringSummary && state.monitoringCacheKey === cacheKey) {
+    paintQualityPage(state.monitoringSummary, reqId);
+    return;
+  }
+  el.view.innerHTML = `
+    <section class="page-lead"><h2 class="page-lead-title">Qualidade dos dados</h2>
+    <p class="page-lead-text">Indicadores ao vivo da carteira filtrada. Histórico e execuções carregam em seguida — falha parcial não bloqueia a leitura operacional.</p></section>
+    <p class="note" id="qualityLoadingNote">Carregando indicadores…</p>`;
+  loadMonitoringHistory().catch(() => {});
+  fetchMonitoringSummary()
+    .then((mon) => {
+      if (reqId !== qualityRequestId || state.view !== "quality") return;
+      paintQualityPage(mon, reqId);
+    })
+    .catch((err) => {
+      renderQualitySummaryError(err, reqId);
+    });
+}
+
+function paintQualityPage(mon, reqId) {
+  if (reqId !== qualityRequestId || state.view !== "quality") return;
+  try {
       const live = mon.live || {};
       const meta = mon.meta || {};
       const exec = mon.executive || {};
@@ -834,7 +1135,11 @@ function renderQuality() {
       const destParts = [];
       if (env.durableDestination?.localPrimary) destParts.push("local");
       if (env.durableDestination?.filesystemMirror) destParts.push("mirror");
-      if (env.durableDestination?.supabase) destParts.push(`Storage (${escapeHtml(env.durableDestination.supabase.bucket || "bucket")})`);
+      if (env.durableDestination?.supabase) {
+        const supa = env.durableDestination.supabase;
+        const bucket = supa && typeof supa === "object" ? supa.bucket : null;
+        destParts.push(`Storage (${escapeHtml(bucket || "bucket")})`);
+      }
 
       state.qualityDiagnostics = diagnostics;
       state.qualityPage = 1;
@@ -857,7 +1162,7 @@ function renderQuality() {
             "Armazenamento e automação",
             `<p>Persistência: ${escapeHtml(stateLabel)} · Automação: ${escapeHtml(autoLabel)}</p><p>Destino: ${destParts.length ? destParts.join(" + ") : "somente sessão local"} · última execução ${pers.ultimaExecucao ? new Date(pers.ultimaExecucao).toLocaleString("pt-BR") : "—"}</p>`,
           )}
-          ${(env.warnings || []).length ? alertBox("warning", "Avisos do ambiente", env.warnings.map((w) => `<p>${escapeHtml(w)}</p>`).join("")) : ""}
+          ${(env.warnings || []).length ? alertBox("warning", "Avisos do ambiente", env.warnings.map((w) => `<p>${escapeHtml(envWarningText(w))}</p>`).join("")) : ""}
           ${(pers.falhasRecentes || []).length ? alertBox("critical", "Falhas recentes do pipeline", `<p>${pers.falhasRecentes.map((f) => escapeHtml(f.referenceDay)).join(", ")}</p>`) : ""}
         </section>`;
 
@@ -926,8 +1231,9 @@ function renderQuality() {
             : "";
 
       el.view.innerHTML = `
-        <p class="note">${escapeHtml(mon.separacao || "Qualidade informacional ≠ saúde do cliente (HS). Prioridade de dados ≠ risco de churn.")}</p>
-        <p class="sub">${escapeHtml(meta.notBaseQvNote || "Ausência de snapshots locais não indica falha na BASE QV.")}</p>
+        <section class="page-lead"><h2 class="page-lead-title">Qualidade dos dados</h2>
+        <p class="page-lead-text">Separamos qualidade informacional (cadastro/histórico) do Health Score e de modelos de churn.</p></section>
+        <h3 class="section-heading">Qualidade da carteira</h3>
         ${execHtml}
         ${ghaHtml}
         ${n8nScheduleHtml}
@@ -941,16 +1247,18 @@ function renderQuality() {
           ${card("Qualidade por programa", "n e % com denominador por grupo", table("<th>Programa</th><th class='num'>n</th><th class='num'>Hist.</th><th class='num'>Mec.</th><th class='num'>Incons.</th><th>Alerta</th>", byProgram.slice(0, 8).map(segRow).join("") || "<tr><td colspan='6'>—</td></tr>"))}
           ${card("Qualidade por EP", "Composição de carteira pode diferir", table("<th>EP</th><th class='num'>n</th><th class='num'>Hist.</th><th class='num'>Mec.</th><th class='num'>Incons.</th><th>Alerta</th>", byEp.slice(0, 8).map(segRow).join("") || "<tr><td colspan='6'>—</td></tr>"))}
         </section>
+        <h3 class="section-heading">Histórico</h3>
         <section class="grid cards-2">
           ${card("Evolução por snapshot", "Local ou Business Data (_dash_health_score)", table("<th>Dia ref.</th><th class='num'>Clientes</th><th>Fonte</th>", trendBody))}
-          ${card("Comparação temporal", "Sem variação artificial no mesmo dia", `<p class="sub">${temporalNote}</p>`)}
+          ${card("Comparação temporal", temporal.comparable ? "Snapshots válidos" : "Histórico em formação", `<p class="sub">${temporalNote}</p>`)}
         </section>
-        ${card("Execuções do pipeline", "Preferência Business Data quando configurado", table("<th>Ref.</th><th>Status</th><th class='num'>Clientes</th><th>Término</th><th>Fonte</th>", runRows || "<tr><td colspan='5'>Nenhuma execução registrada.</td></tr>"))}
+        <h3 class="section-heading">Execuções</h3>
+        ${card("Pipeline de monitoramento", "Preferência Business Data quando configurado", table("<th>Ref.</th><th>Status</th><th class='num'>Clientes</th><th>Término</th><th>Fonte</th>", runRows || "<tr><td colspan='5'>Nenhuma execução registrada.</td></tr>"))}
         <section class="card" id="qualityDiagSection">
           <h3>Diagnósticos por cliente</h3>
           <p class="sub">Busca local · paginação 20 · clique abre detalhe · não altera BASE QV</p>
           <input type="search" id="qualityTableSearch" class="input" placeholder="Buscar nome, código, programa, EP, tipo…" value="${escapeHtml(state.qualityDiagSearch)}" />
-          ${table("<th>Cliente</th><th>Código</th><th>Programa</th><th>EP</th><th>Categoria</th><th>Tipo</th><th>Pri.</th><th>Evidência</th><th>Ação</th>", "", { compact: true, sticky: true })}
+          ${table("<th>Cliente</th><th>Código</th><th>Programa</th><th>EP</th><th>Categoria</th><th>Tipo</th><th>Pri.</th><th>Evidência</th><th>Ação</th>", "", { compact: true })}
           <div id="qualityPager"></div>
         </section>
         <div class="card">
@@ -968,22 +1276,15 @@ function renderQuality() {
         paintQualityDiagnosticsTable(el.view, diagnostics);
       });
       bindTipTriggers(el.view);
-      } catch (innerErr) {
-        console.error("[quality render]", innerErr);
-        el.view.innerHTML = `<section class="card error-state"><h2>Erro ao montar a página</h2><p>${escapeHtml(innerErr.message || "Dados incompletos.")}</p><button type="button" class="btn" id="retryQuality">Tentar novamente</button></section>`;
-        document.getElementById("retryQuality")?.addEventListener("click", () => {
-          state.monitoringLoaded = false;
-          renderQuality();
-        });
-      }
-    })
-    .catch((err) => {
-      el.view.innerHTML = `<section class="card error-state"><h2>Qualidade e Monitoramento</h2><p>${escapeHtml(qualityErrorMessage(err))}</p><button type="button" class="btn" id="retryQuality">Tentar novamente</button></section>`;
-      document.getElementById("retryQuality")?.addEventListener("click", () => {
-        state.monitoringLoaded = false;
-        renderQuality();
-      });
+  } catch (innerErr) {
+    console.error("[quality render]", innerErr);
+    if (reqId !== qualityRequestId || state.view !== "quality") return;
+    el.view.innerHTML = `<section class="card error-state"><h2>Erro ao montar Qualidade dos Dados</h2><p>${escapeHtml(innerErr.message || "Dados incompletos.")}</p><button type="button" class="btn" id="retryQuality">Tentar novamente</button></section>`;
+    document.getElementById("retryQuality")?.addEventListener("click", () => {
+      state.monitoringLoaded = false;
+      renderQuality();
     });
+  }
 }
 
 function hs2aCompareTable(stats) {
@@ -1069,43 +1370,96 @@ function renderMechanisms() {
   `;
 }
 
-function renderNps(payload) {
-  const nps = payload.nps || {};
-  const rows = clients().filter((row) => Number.isFinite(row.npsScore));
-  const classRows = buckets(clients(), (row) => npsLabel(row.npsClass));
-  const byScore = ["Saudável", "Atenção", "Crítico", "Em implantação", "Sem registro"].map((label) => {
-    const subset = clients().filter((row) => row.finalClass === label && Number.isFinite(row.npsScore));
+function npsBandStats(rows, labelField, order) {
+  return order.map((label) => {
+    const subset = rows.filter((row) => row[labelField] === label && Number.isFinite(row.npsScore));
     const promoters = subset.filter((row) => row.npsClass === "promoter").length;
     const detractors = subset.filter((row) => row.npsClass === "detractor").length;
+    const avg = subset.length ? subset.reduce((s, r) => s + r.npsScore, 0) / subset.length : null;
     const index = subset.length ? ((promoters - detractors) / subset.length) * 100 : null;
-    return { label, count: subset.length, percent: index || 0, meta: index == null ? "sem resposta" : `NPS ${formatNum(index, 0)} · n=${subset.length}` };
+    const meta =
+      subset.length === 0
+        ? "sem respostas"
+        : `n=${subset.length} · nota média ${formatNum(avg, 1)}${index == null ? "" : ` · NPS ${formatNum(index, 0)}`}`;
+    return {
+      label,
+      count: subset.length,
+      percent: subset.length,
+      meta,
+      tone: tone(label),
+    };
   });
-  const correlations = nps.correlations || [];
-  const correlationCards = correlations.map((item) => card(
+}
+
+function npsNoteDistribution(rows) {
+  const counts = Array.from({ length: 11 }, (_, score) => ({
+    label: String(score),
+    count: 0,
+    percent: 0,
+    tone: score <= 6 ? "critical" : score <= 8 ? "attention" : "healthy",
+  }));
+  for (const row of rows) {
+    if (!Number.isFinite(row.npsScore)) continue;
+    const score = Math.max(0, Math.min(10, Math.round(row.npsScore)));
+    counts[score].count += 1;
+  }
+  const total = counts.reduce((s, c) => s + c.count, 0);
+  return counts.map((c) => ({
+    ...c,
+    percent: c.count,
+    meta: total ? `${fmt.format(c.count)} (${pctFmt.format((c.count / total) * 100)}%)` : "0",
+  }));
+}
+
+function correlationCard(item, subject) {
+  const copy = describeCorrelation({
+    pearson: item.pearson,
+    sampleSize: item.sampleSize,
+    subject,
+  });
+  return card(
     item.label,
-    evidence(item.sampleSize || 0, item.pearson),
-    `<div class="cols"><span>Pearson</span><strong>${item.pearson == null ? "—" : formatNum(item.pearson, 3)}</strong><span>Spearman</span><strong>${item.spearman == null ? "—" : formatNum(item.spearman, 3)}</strong><span>Amostra</span><strong>${fmt.format(item.sampleSize || 0)}</strong></div>`,
-  )).join("");
+    copy.headline,
+    `<p class="sub">${escapeHtml(copy.detail)}</p><div class="cols compact-cols"><span>Pearson</span><strong>${item.pearson == null ? "—" : formatNum(item.pearson, 3)}</strong><span>Spearman</span><strong>${item.spearman == null ? "—" : formatNum(item.spearman, 3)}</strong><span>Amostra</span><strong>${fmt.format(item.sampleSize || 0)}</strong></div>`,
+  );
+}
+
+function renderNps(payload) {
+  const nps = payload.nps || {};
+  const all = clients();
+  const rows = all.filter((row) => Number.isFinite(row.npsScore));
+  const eOrder = ["Saudável", "Atenção", "Crítico", "Sem registro", "Não informado"];
+  const mOrder = ["Saudável", "Atenção", "Crítico", "Sem registro", "Não informado"];
+  const byE = npsBandStats(all, "engagementLabel", eOrder);
+  const byM = npsBandStats(all, "mechanismLabel", mOrder);
+  const noteBars = npsNoteDistribution(all);
+  const correlations = nps.correlations || [];
   const renewal = (nps.renewalByClass || []).map((row) => `<tr><td>${escapeHtml(row.label)}</td><td class="num">${fmt.format(row.respondents || 0)}</td><td class="num">${fmt.format(row.renewed || 0)}</td><td class="num">${row.renewalRate == null ? "—" : `${pctFmt.format(row.renewalRate)}%`}</td></tr>`).join("");
   el.view.innerHTML = `
-    ${alertBox("info", "NPS e correlações", "<p>Associação descritiva no recorte atual — não indica causalidade nem risco individual.</p>")}
-    <section class="grid kpis">
+    ${alertBox("info", "Leitura associativa", "<p>Mostramos padrões no recorte filtrado. Isso <strong>não prova</strong> que engajamento ou mecanismos causem NPS.</p>")}
+    <section class="grid kpis kpis-4">
       ${kpi("Respondentes", fmt.format(nps.respondents || 0), `${pctFmt.format(nps.coveragePercent || 0)}% do recorte`)}
-      ${kpi("Clientes no recorte", fmt.format(nps.totalClients || 0), "Base do filtro atual")}
-      ${kpi("Pares E × NPS", fmt.format(correlations[0]?.sampleSize || 0), "Última resposta válida")}
-      ${kpi("Pares M × NPS", fmt.format(correlations[1]?.sampleSize || 0), "Última resposta válida")}
+      ${kpi("Clientes no recorte", fmt.format(nps.totalClients || 0), "Respeita filtros globais")}
+      ${kpi("Pares E × NPS", fmt.format(correlations[0]?.sampleSize || 0), "Última nota válida")}
+      ${kpi("Pares M × NPS", fmt.format(correlations[1]?.sampleSize || 0), "Última nota válida")}
+    </section>
+    ${card("Notas de 0 a 10", "Detrator (0–6) · Neutro (7–8) · Promotor (9–10)", bars(noteBars, "count"))}
+    <section class="grid cards-2">
+      ${card("Engajamento (E) × NPS", "Por faixa de nota E — quantidade de respostas e NPS do grupo", bars(byE.filter((b) => b.count > 0).length ? byE : [{ label: "Sem respostas", count: 0, percent: 0, meta: "—" }], "count"))}
+      ${card("Mecanismos (M) × NPS", "Por faixa de nota M — mesmo recorte", bars(byM.filter((b) => b.count > 0).length ? byM : [{ label: "Sem respostas", count: 0, percent: 0, meta: "—" }], "count"))}
     </section>
     <section class="grid cards-2">
-      ${card("Distribuição das respostas", "Última nota válida de cada cliente", bars(classRows))}
-      ${card("NPS por faixa de score", "Promotores menos detratores, dividido pelos respondentes da faixa", bars(byScore, "count"))}
+      ${correlations[0] ? correlationCard(correlations[0], "engajamento (E) e satisfação (NPS)") : ""}
+      ${correlations[1] ? correlationCard(correlations[1], "mecanismos (M) e satisfação (NPS)") : ""}
     </section>
-    <section class="grid cards-2">${correlationCards}</section>
-    <section class="grid cards-2">
-      ${card("Engajamento × NPS", `n = ${fmt.format(rows.length)}. Correlação não é causa.`, scatter(rows.map((row) => ({ x: row.npsScore, y: row.engagementScore, label: row.clientCode }))))}
-      ${card("Mecanismos × NPS", "Nota M contra a última nota NPS.", scatter(rows.map((row) => ({ x: row.npsScore, y: row.mechanismScore, label: row.clientCode }))))}
-    </section>
-    ${card("Renovação por classe NPS", "Clientes com resposta válida. Renovação observa o ciclo, não prevê o futuro.", table("<th>Classe</th><th class='num'>Respondentes</th><th class='num'>Renovados</th><th class='num'>Taxa</th>", renewal))}
-    <p class="note">Os coeficientes descrevem associação no recorte. Amostra pequena, respostas ausentes e o fato de o NPS ser posterior a parte da jornada limitam qualquer leitura preditiva.</p>
+    ${card("Renovação por classe NPS", "Observacional — ciclo atual", table("<th>Classe</th><th class='num'>Respondentes</th><th class='num'>Renovados</th><th class='num'>Taxa</th>", renewal))}
+    <details class="advanced-block">
+      <summary>Gráficos de dispersão (avançado)</summary>
+      <section class="grid cards-2">
+        ${card("Dispersão Engajamento × NPS", `n = ${fmt.format(rows.length)}`, scatter(rows.map((row) => ({ x: row.npsScore, y: row.engagementScore, label: row.clientCode }))))}
+        ${card("Dispersão Mecanismos × NPS", "Eixo X = nota NPS · Y = nota M", scatter(rows.map((row) => ({ x: row.npsScore, y: row.mechanismScore, label: row.clientCode }))))}
+      </section>
+    </details>
   `;
 }
 
@@ -1131,11 +1485,15 @@ function groupLine(label, stats) {
 }
 
 const RESEARCH_TABS = [
-  { id: "study", label: "Visão do Estudo" },
-  { id: "audit", label: "Auditoria de Dados" },
-  { id: "validation", label: "Validação do HS" },
-  { id: "modeling", label: "Modelagem" },
+  { id: "panorama", label: "Visão executiva" },
+  { id: "hsfuture", label: "HS futuro" },
+  { id: "how", label: "Como funciona" },
+  { id: "model", label: "Modelo e limitações" },
 ];
+
+function normalizeResearchTab(tab) {
+  return RESEARCH_TAB_ALIASES[tab] || tab;
+}
 
 const RESEARCH_POPULATIONS = [
   { value: "total", label: "Total histórico" },
@@ -1154,7 +1512,7 @@ function researchTabButtons() {
 function bindResearchTabs() {
   el.view.querySelectorAll("[data-research-tab]").forEach((button) => {
     button.addEventListener("click", () => {
-      state.researchTab = button.dataset.researchTab;
+      state.researchTab = normalizeResearchTab(button.dataset.researchTab);
       renderResearch();
     });
   });
@@ -1186,20 +1544,113 @@ function researchStateBanner() {
   );
 }
 
+function studyFlowDiagram() {
+  const steps = [
+    { title: "Cliente", text: "Carteira na BASE QV" },
+    { title: "Dados", text: "Reuniões, M, status" },
+    { title: "HS", text: "E + M (pesquisa 50/50)" },
+    { title: "Janela 90d", text: "Observar cancelamento" },
+    { title: "Modelo", text: "Experimentos A–E" },
+    { title: "Resultado", text: "Métricas congeladas" },
+  ];
+  return `<ol class="study-flow">${steps.map((s) => `<li><strong>${escapeHtml(s.title)}</strong><span>${escapeHtml(s.text)}</span></li>`).join("")}</ol>`;
+}
+
+function methodologySummaryCard() {
+  return card(
+    `Metodologia resumida ${tipIcon("hs_formula")}${tipIcon("churn_pesquisa")}`,
+    "O que foi medido e o que não publicamos em produção",
+    `<dl class="def-list">
+      <dt>Health Score (HS) ${tipIcon("hs_medio")}</dt><dd>Nota 0–100: combinação ponderada de E e M. No dashboard você pode simular outros pesos; o estudo histórico documenta 50/50.</dd>
+      <dt>E (Engajamento) ${tipIcon("engajamento")}</dt><dd>Quão presente está o relacionamento em reuniões válidas.</dd>
+      <dt>M (Mecanismos) ${tipIcon("mecanismos")}</dt><dd>Quanto da jornada já tem mecanismo implantado (em andamento não conta).</dd>
+      <dt>O que previmos ${tipIcon("desfecho_90d")}</dt><dd>Probabilidade de <strong>churn em 90 dias</strong> no passado — só para comparar modelos, não para decidir hoje.</dd>
+      <dt>Censura ${tipIcon("censura")}</dt><dd>Clientes ainda sem tempo suficiente para saber se cancelaram dentro da janela.</dd>
+      <dt>Em produção</dt><dd>Não exibimos probabilidade individual de churn — apenas o HS operacional e esta pesquisa agregada.</dd>
+    </dl>`,
+    { htmlTitle: true },
+  );
+}
+
 function readinessBlock() {
   const r = state.predictiveReadiness;
   if (!r) {
-    return `<p class="note">Pesquisa (Etapa 3): <strong>exports/predictive-study/predictive_readiness.json</strong> ausente. Regere com <strong>npm run build:predictive-validated</strong>. Métricas A–E podem ainda aparecer na aba Modelagem se <code>modeling_results.json</code> existir.</p>`;
+    return `<p class="note">Arquivo de prontidão da pesquisa ausente neste ambiente. Métricas dos modelos A–E podem aparecer na aba Modelagem se os exports existirem.</p>`;
   }
   const cs = r.churnStats || {};
   const a = r.audit || {};
   const churnTitle = r.source === "modeling_results.json" ? "Churn (síntese)" : "Churn confirmado";
-  const churnSub = r.source === "modeling_results.json" ? "Episódios — preferir export validado" : "Consolidado (episódios, não clientes únicos do snapshot)";
+  const churnSub = "Episódios identificados no estudo — não confundir com o total de clientes do painel";
   return `
-    <section class="grid cards-3">
-      ${card(churnTitle, churnSub, `<p class="formula">${fmt.format(cs.episodesConfirmed ?? cs.positives ?? 0)}</p><p class="sub">${fmt.format(cs.episodesWithoutDate || 0)} sem data · ${fmt.format(cs.dateConflicts || 0)} conflitos</p>`)}
-      ${card("HS histórico", "Reconstrução mensal (pesquisa)", `<p class="formula">${fmt.format(a.hsIntegral || 0)}</p><p class="sub">integral · ${fmt.format(a.hsParcial || 0)} parcial · ${fmt.format(a.hsNaoReconstruivel || 0)} não reconstruível</p>`)}
-      ${card("Elegíveis 90d", "Horizonte congelado", `<p class="formula">${fmt.format(a.rowsEligible90 || 0)}</p><p class="sub">positivos ${fmt.format(a.positives90 || 0)} · censura ${fmt.format(a.censored90 || 0)}</p>`)}
+    <section class="grid cards-3 kpi-cards-research">
+      ${card(`${churnTitle} ${tipIcon("churn_pesquisa")}`, churnSub, `<p class="formula">${fmt.format(cs.episodesConfirmed ?? cs.positives ?? 0)}</p><p class="sub">${fmt.format(cs.episodesWithoutDate || 0)} sem data · ${fmt.format(cs.dateConflicts || 0)} datas conflitantes</p>`, { htmlTitle: true })}
+      ${card("HS histórico", "Reconstruído mês a mês para o estudo", `<p class="formula">${fmt.format(a.hsIntegral || 0)}</p><p class="sub">${fmt.format(a.hsParcial || 0)} parcial · ${fmt.format(a.hsNaoReconstruivel || 0)} sem histórico suficiente</p>`)}
+      ${card(`Clientes elegíveis (90d) ${tipIcon("elegiveis_90d")}`, "Com janela válida para avaliar cancelamento em 90 dias", `<p class="formula">${fmt.format(a.rowsEligible90 || 0)}</p><p class="sub">${fmt.format(a.positives90 || 0)} com churn · ${fmt.format(a.censored90 || 0)} censurados ${tipIcon("censura")}</p>`, { htmlTitle: true })}
+    </section>`;
+}
+
+function renderResearchWeights() {
+  const study = state.researchBundle?.data?.hsWeightStudy || state.hsWeightStudy;
+  if (!study) {
+    return alertBox(
+      "warning",
+      "Estudo de pesos",
+      "<p>Execute <code>npm run research:hs-weights</code> após artefatos de modelagem.</p>",
+    );
+  }
+  const aucBars = (study.grid || [])
+    .filter((g) => g.rocAucTest != null)
+    .map((g) => ({
+      label: `${g.engagementPercent}/${g.mechanismPercent}${g.official ? " ★" : ""}`,
+      count: g.rocAucTest,
+      percent: g.rocAucTest * 100,
+      meta: `PR ${formatNum(g.prAucTest, 3)} · ${g.source}`,
+    }));
+  return `
+    <section class="page-lead research-lead">
+      <h2 class="page-lead-title">Qual peso entre E e M?</h2>
+      <p class="page-lead-text">${escapeHtml(study.recommendation.summaryPlain)}</p>
+    </section>
+    ${alertBox("experimental", "Baseline oficial", "<p>HS operacional V1 permanece <strong>50/50</strong> até decisão formal — grid completo exige refit row-level.</p>")}
+    ${card("Desempenho exploratório (ROC-AUC)", "Pontos com métrica disponível — hold-out jun/2026 não é confirmação", aucBars.length ? bars(aucBars, "count") : "<p class='note'>Regenerar estudo após model:all.</p>")}
+    ${card("Churn observado por faixa HS (50/50 histórico)", "Descritivo — HS alto = melhor saúde", bars(study.hsChurnByBand?.map((b) => ({ label: b.hs_faixa, count: b.n, percent: (b.churn_rate_90d || 0) * 100, meta: `${pctFmt.format((b.churn_rate_90d || 0) * 100)}% churn` })) || [], "count"))}
+    <p class="note">Relatório completo: <code>docs/HS_WEIGHT_STUDY.md</code></p>`;
+}
+
+function renderResearchHsFuture() {
+  const f = state.researchBundle?.data?.hsFutureFeasibility || state.hsFutureFeasibility;
+  if (!f) {
+    return `<section class="research-hero card research-hero-compact">
+      <h1 class="research-hero-title">Saúde futura do cliente (em desenvolvimento)</h1>
+      <p class="research-hero-lead">Ainda não há avaliação de viabilidade neste ambiente. O Health Score operacional de hoje permanece a referência.</p>
+    </section>`;
+  }
+  const ready = Boolean(f.feasible && f.modelValidated);
+  const statusLabel = ready ? "Em estudo" : "Não pronto";
+  const statusClass = ready ? "research-status-study" : "research-status-not-ready";
+  const maturity =
+    (f.snapshotPoints || 0) >= 12
+      ? "Série em formação"
+      : (f.snapshotPoints || 0) >= 3
+        ? "Maturidade inicial"
+        : "Base ainda curta";
+  return `
+    <section class="research-hero card research-hero-compact">
+      <p class="research-hero-eyebrow">Viabilidade · separado do churn histórico</p>
+      <h1 class="research-hero-title">Saúde futura do cliente (em desenvolvimento)</h1>
+      <p class="research-hero-lead">Ainda <strong>não existe previsão validada</strong> de Health Score futuro por cliente. O painel mostra o HS de hoje; esta aba acompanha se a base histórica permite, no futuro, modelar evolução.</p>
+      <span class="research-status-pill ${statusClass}">${escapeHtml(statusLabel)}</span>
+    </section>
+    <section class="grid kpis kpis-4 research-exec-kpis">
+      ${kpi("Snapshots válidos", fmt.format(f.snapshotPoints ?? 0), "Business Data / execuções")}
+      ${kpi("Meses comparáveis", fmt.format(f.distinctReferenceDays ?? 0), "Referências distintas")}
+      ${kpi("Maturidade da base", maturity, escapeHtml(f.reason || ""))}
+      ${kpi("Próximo passo", ready ? "Validar modelo" : "Acumular histórico", ready ? "Hold-out cronológico" : "Mais snapshots mensais")}
+    </section>
+    <section class="card research-exec-conclusion">
+      <h2 class="research-section-title">Mensagem para sócios</h2>
+      <p>${escapeHtml(f.reason || "Série longitudinal insuficiente.")} Até validação formal, não publicamos HS futuro nem substituímos o score operacional.</p>
+      <p class="sub">Baseline de persistência: permanecemos com HS operacional de hoje; evolução futura exige mais snapshots mensais comparáveis.</p>
     </section>`;
 }
 
@@ -1208,32 +1659,46 @@ function renderResearchStudy(rows, audit) {
   const counts = state.payload?.metadata?.counts || {};
   const trained = state.modelingResults?.status === "ok";
   const objective = trained
-    ? `<p>Experimentos A–E treinados sobre dataset histórico validado. Métricas na aba <strong>Modelagem</strong> — não usar operacionalmente.</p>`
-    : `<p>Auditoria e extração para estimar churn e testar E, M e HS experimental. Treine com <strong>npm run model:all</strong> após base validada.</p>`;
+    ? `<p>Comparamos modelos A–E no passado para ver se E, M ou HS ajudam a antecipar cancelamento em 90 dias. Os números estão na aba <strong>Modelagem</strong> — são experimentais.</p>`
+    : `<p>Preparamos dados históricos, validamos o HS e treinamos modelos de comparação. Sem exports completos, você ainda vê a lógica do estudo aqui.</p>`;
   return `
     ${researchStateBanner()}
+    <section class="page-lead research-lead">
+      <h2 class="page-lead-title">O que é esta análise?</h2>
+      <p class="page-lead-text">Um estudo <strong>offline</strong> que pergunta: “no passado, sinais como engajamento e mecanismos ajudaram a explicar quem cancelou em até 90 dias?”. Não é o botão que o time usa no dia a dia — é evidência para evoluir o produto com cautela.</p>
+    </section>
     ${readinessBlock()}
+    ${card("Fluxo do estudo", "Do cliente aos resultados — visão em sequência", studyFlowDiagram())}
     <section class="grid cards-2">
       ${card("Objetivo", audit?.studyPhase || "Pesquisa preditiva", objective)}
-      ${card("Desfechos (candidatos)", "Definições na BASE QV (operacional)", `<ul class="plain-list"><li><strong>Churn:</strong> ${escapeHtml(audit?.definitions?.churnDashboard || "—")}</li><li><strong>Renovação:</strong> ${escapeHtml(audit?.definitions?.renewalDashboard || "—")}</li></ul>`)}
+      ${card(`O que é churn? ${tipIcon("churn_pesquisa")}`, "Como identificamos cancelamento no estudo", `<p class="sub">${escapeHtml(audit?.definitions?.churnDashboard || "Consolidado a partir de evidências na BASE QV.")}</p>`, { htmlTitle: true })}
+    </section>
+    <section class="grid cards-2">
+      ${card(`O que é HS, E e M? ${tipIcon("hs_medio")}`, "Três ideias simples", `<p><strong>HS</strong> combina duas notas. <strong>E</strong> mede reuniões. <strong>M</strong> mede mecanismos implantados. Pesos 50/50 no estudo; no painel operacional você pode simular outros pesos.</p>`, { htmlTitle: true })}
+      ${card("Formas de identificar churn", "Operacional vs pesquisa", `<ul class="plain-list"><li><strong>Churn:</strong> ${escapeHtml(audit?.definitions?.churnDashboard || "—")}</li><li><strong>Renovação:</strong> ${escapeHtml(audit?.definitions?.renewalDashboard || "—")}</li></ul>`)}
     </section>
     <section class="grid cards-3">
-      ${card("População carregada", "Operacional — snapshot", `<p class="formula">${fmt.format(pop.clientsLoaded || counts.clients || 0)}</p><p class="sub">clientes na BASE QV</p>`)}
-      ${card("No recorte do estudo", "Filtros exploratórios (programa/EP/período)", `<p class="formula">${fmt.format(rows.length)}</p><p class="sub">cluster ${escapeHtml(pop.appliedCluster || effectiveCluster())}</p>`)}
-      ${card("Evidência de cancelamento", "Snapshot — não substitui churn consolidado", `<p class="formula">${fmt.format(pop.cancelEvidence || 0)}</p><p class="sub">${fmt.format(pop.cancelWithDate || 0)} com data · ver cartões de pesquisa acima</p>`)}
+      ${card("População carregada", "Snapshot atual da BASE QV", `<p class="formula">${fmt.format(pop.clientsLoaded || counts.clients || 0)}</p><p class="sub">clientes disponíveis</p>`)}
+      ${card("No recorte do estudo", "Filtros de programa, EP e busca", `<p class="formula">${fmt.format(rows.length)}</p><p class="sub">população: ${escapeHtml(pop.appliedCluster || effectiveCluster())}</p>`)}
+      ${card("Evidência de cancelamento", "Indício no snapshot — ver também churn confirmado acima", `<p class="formula">${fmt.format(pop.cancelEvidence || 0)}</p><p class="sub">${fmt.format(pop.cancelWithDate || 0)} com data registrada</p>`)}
     </section>
-    ${card("Camadas de dados", "Não somar populações incompatíveis", `<div class="chips"><span class="chip">Operacional: E, M, HS atuais</span><span class="chip">Pesquisa: churn episódios</span><span class="chip">Modelos A–E congelados</span></div><p class="note">Financeiro e suporte detalhados: exports/predictive-study (npm run export:predictive).</p>`)}
+    ${methodologySummaryCard()}
+    ${card("Três camadas — não misturar", "Cada camada responde uma pergunta diferente", `<div class="chips"><span class="chip">Operacional: HS de hoje</span><span class="chip">Pesquisa: churn histórico</span><span class="chip">Modelos: ranking A–E</span></div>`)}
     ${prospectiveFreezesCard()}
   `;
 }
 
 function prospectiveFreezesCard() {
   const hist = state.monitoringHistory;
-  if (!hist?.ok) {
+  if (!hist) {
+    return alertBox("info", "Freezes prospectivos (Business Data)", `<p class="note">Carregando histórico persistido…</p>`);
+  }
+  if (!hist.ok) {
+    const detail = hist.persistence?.detail || hist.error || "Verifique service role e URL do projeto rckpuebaiswrxzmywllv.";
     return alertBox(
-      "warning",
+      hist.persistence?.state === "disconnected" ? "warning" : "critical",
       "Freezes prospectivos (Business Data)",
-      `<p>${escapeHtml(hist?.error || "Configure Business Data para consultar congelamentos mensais persistidos.")}</p>`,
+      `<p>${escapeHtml(detail)}</p>${hist.code ? `<p class="muted-code">${escapeHtml(hist.code)}</p>` : ""}`,
     );
   }
   const rows = (hist.freezes || [])
@@ -1275,8 +1740,19 @@ function renderResearchAudit(rows, audit) {
     .map(([label, item]) => `<tr><td>${escapeHtml(label)}</td><td class="num">${fmt.format(item.count)}</td><td class="num">${pctFmt.format(item.percent)}%</td></tr>`)
     .join("");
   const cancelTbl = audit?.cancellationsTable || {};
+  const coverageBars = localCoverage.map(([label, item]) => ({
+    label,
+    count: item.count,
+    percent: item.percent,
+    meta: `${pctFmt.format(item.percent)}%`,
+  }));
   return `
-    ${card("Fontes identificadas", "Inventário lógico — contagens do carregamento do dashboard", table("<th>Tabela</th><th>Papel</th><th class='num'>Linhas</th>", sources))}
+    <section class="page-lead research-lead">
+      <h2 class="page-lead-title">Dados e base analítica</h2>
+      <p class="page-lead-text">De onde vêm os números, quantos clientes têm cada informação preenchida e onde ainda há lacunas. Barras maiores = melhor cobertura no recorte selecionado.</p>
+    </section>
+    ${card("Cobertura por variável (recorte atual)", "Percentual de clientes com dado utilizável", bars(coverageBars))}
+    ${card("Fontes identificadas", "Tabelas usadas no carregamento do dashboard", table("<th>Tabela</th><th>Papel</th><th class='num'>Linhas</th>", sources))}
     <section class="grid cards-2">
       ${card("Cancelamentos (tabela)", "Arquivados vs ativos", `<div class="cols"><span>Total lidos</span><strong>${fmt.format(cancelTbl.totalRows || 0)}</strong><span>Não arquivados</span><strong>${fmt.format(cancelTbl.nonArchivedRows || 0)}</strong><span>Arquivados</span><strong>${fmt.format(cancelTbl.archivedRows || 0)}</strong></div>`)}
       ${card("Cobertura temporal", "Resumo cadastral e reuniões", `<div class="cols"><span>Entrada clientes</span><strong>${escapeHtml(coverage.clientEntry?.min?.slice(0, 10) || "—")} → ${escapeHtml(coverage.clientEntry?.max?.slice(0, 10) || "—")}</strong><span>Reuniões</span><strong>${escapeHtml(coverage.meetings?.min?.slice(0, 10) || "—")} → ${escapeHtml(coverage.meetings?.max?.slice(0, 10) || "—")}</strong><span>NPS ausente (carteira)</span><strong>${formatNum(nps.missingPercent, 1)}%</strong></div>`)}
@@ -1421,11 +1897,15 @@ function renderResearchValidation(rows) {
   const engaged = describeGroup(rows, (row) => row.engagementLabel === "Saudável");
   const silent = describeGroup(rows, (row) => !row.totalMeetings);
   return `
+    <section class="page-lead research-lead">
+      <h2 class="page-lead-title">Validação do Health Score</h2>
+      <p class="page-lead-text">O HS ajuda a <strong>organizar a carteira</strong> e, no histórico, aparece associado a mais churn quando está baixo — mas isso <strong>não prova</strong> sozinho que o score prevê cancelamento. Use os gráficos como leitura descritiva.</p>
+    </section>
     ${robustBlock}
     ${evolutionBlock}
     ${labBlock}
     ${descBlock}
-    <p class="note">Comparação <strong>descritiva</strong> no recorte operacional atual (snapshot). Métricas preditivas estão na aba Modelagem.</p>
+    <p class="note">Tabela abaixo: comparação simples no snapshot de hoje. Para performance preditiva (ROC/PR), vá à aba Modelagem.</p>
     ${card("HS, E e M por grupo", "Inclua cancelados na população do estudo para ler churn", table("<th>Grupo</th><th class='num'>n</th><th class='num'>HS</th><th class='num'>E</th><th class='num'>M</th><th class='num'>Reuniões/mês</th>", [
       groupLine("Com evidência de cancelamento", churn),
       groupLine("Sem evidência de cancelamento", active),
@@ -1480,7 +1960,11 @@ function renderResearchModeling(audit) {
     value: exp.models?.[row.model_id]?.test?.pr_auc ?? 0,
   }));
   return `
-    ${alertBox("experimental", "Modelagem preditiva (histórica)", "<p>Resultados congelados do experimento — filtros do dashboard não recalculam métricas.</p>")}
+    <section class="page-lead research-lead">
+      <h2 class="page-lead-title">Modelagem (experimentos A–E)</h2>
+      <p class="page-lead-text">Comparamos combinações de variáveis para ranquear risco de churn em 90 dias no <strong>passado</strong>. O melhor modelo aqui <strong>não está aprovado</strong> para operação — serve para aprendizado e próximos passos.</p>
+    </section>
+    ${alertBox("experimental", "Somente pesquisa", "<p>Alterar filtros do dashboard não muda estas métricas. Não publicamos score de risco individual para clientes.</p>")}
     ${card("Confiança metodológica", `OOS: ${escapeHtml(exp.oos_confidence || "—")}`, `<p class="note">${escapeHtml(split.note || "")} ${tipIcon("roc_auc")}${tipIcon("pr_auc")}</p><p class="sub">Treino ${fmt.format(exp.sample?.train || 0)} obs · Teste ${fmt.format(exp.sample?.test || 0)} · Sobreposição clientes treino/teste: ${fmt.format(split.client_overlap?.train_test || 0)}</p>`)}
     <section class="grid cards-2">
       ${card("ROC-AUC — modelos A–E", "Teste hold-out", hBarMetrics(aucBars, { valueKey: "value", format: (v) => formatNum(v, 3) }))}
@@ -1501,6 +1985,95 @@ function renderResearchModeling(audit) {
   `;
 }
 
+function researchPanoramaUi() {
+  return {
+    escapeHtml,
+    fmt,
+    pctFmt,
+    formatNum,
+    bars,
+    hBarMetrics,
+    card,
+    kpi,
+  };
+}
+
+async function ensurePredictiveLabPack(force = false) {
+  if (state.predictiveLabPackLoaded && !force && state.predictiveLabPack?.referenceModel) {
+    return state.predictiveLabPack;
+  }
+  try {
+    const parsed = await fetchJsonArtifact("/api/predictive-lab-reference");
+    if (parsed.ok && parsed.data?.referenceModel) {
+      state.predictiveLabPack = parsed.data;
+    } else {
+      state.predictiveLabPack = {
+        ok: false,
+        loadState: "error",
+        error: parsed.data?.error || parsed.error || "Falha ao carregar referência de modelagem",
+        sources: parsed.data?.sources,
+      };
+    }
+  } catch (err) {
+    state.predictiveLabPack = { ok: false, loadState: "error", error: err.message };
+  }
+  state.predictiveLabPackLoaded = true;
+  return state.predictiveLabPack;
+}
+
+async function ensureResearchPanorama(force = false) {
+  const q = "frozen_descriptive_all";
+  if (!force && state.researchPanorama && !state.researchPanorama.error && state.researchPanoramaQuery === q) {
+    return state.researchPanorama;
+  }
+  try {
+    const res = await fetch("/api/research-panorama");
+    const contentType = res.headers.get("content-type") || "";
+    const raw = await res.text();
+    let body = null;
+    try {
+      body = raw ? JSON.parse(raw) : null;
+    } catch {
+      body = null;
+    }
+    if (!res.ok) {
+      state.researchPanorama = {
+        error: body?.error || res.statusText || "API indisponível",
+        descriptiveAvailability: body?.descriptiveAvailability || {
+          ok: false,
+          reason: "http_error",
+          message: `HTTP ${res.status} ao carregar /api/research-panorama.`,
+        },
+        artifacts: body?.artifacts,
+      };
+    } else if (!body?.version || !body?.kpis) {
+      const looksHtml = /^\s*</.test(raw || "");
+      state.researchPanorama = {
+        error: looksHtml
+          ? "Resposta HTML em vez de JSON — reinicie com npm run dev (scripts/dev-server.mjs)."
+          : "Contrato JSON inválido na API do Panorama.",
+        descriptiveAvailability: {
+          ok: false,
+          reason: looksHtml ? "invalid_api_response" : "parse_error",
+          message: looksHtml
+            ? "Use npm run dev na pasta dash-health-score; Live Server/static não expõem /api/research-panorama."
+            : "Resposta vazia ou corrompida.",
+        },
+      };
+    } else {
+      state.researchPanorama = body;
+    }
+    state.researchPanoramaQuery = q;
+  } catch (err) {
+    state.researchPanorama = {
+      error: err.message || "Falha ao carregar panorama.",
+      descriptiveAvailability: { ok: false, reason: "http_error", message: err.message },
+    };
+    state.researchPanoramaQuery = q;
+  }
+  return state.researchPanorama;
+}
+
 async function ensureResearchBundle(force = false) {
   if (state.researchBundleLoaded && !force) return state.researchBundle;
   try {
@@ -1512,6 +2085,9 @@ async function ensureResearchBundle(force = false) {
     state.robustnessResults = data.robustnessResults ?? null;
     state.etapa6Results = data.etapa6Results ?? null;
     state.etapa7Results = data.etapa7Results ?? null;
+    state.hsWeightStudy = data.hsWeightStudy ?? null;
+    state.hsFutureFeasibility = data.hsFutureFeasibility ?? null;
+    state.hsFutureFeasible = Boolean(state.hsFutureFeasibility?.feasible);
   } catch {
     state.researchBundle = null;
   }
@@ -1524,11 +2100,27 @@ async function ensureResearchBundle(force = false) {
   return state.researchBundle;
 }
 
-function renderResearch({ skipReadinessFetch = false } = {}) {
+function renderResearch({ skipReadinessFetch = false, skipPanoramaFetch = false } = {}) {
   if (!state.monitoringHistoryFetched) {
     state.monitoringHistoryFetched = true;
     loadMonitoringHistory().then(() => {
-      if (state.view === "research") renderResearch({ skipReadinessFetch: true });
+      if (state.view === "research") renderResearch({ skipReadinessFetch: true, skipPanoramaFetch: true });
+    });
+  }
+  const tabEarly = normalizeResearchTab(state.researchTab);
+  if (!skipPanoramaFetch && tabEarly === "panorama" && !state.researchPanorama) {
+    ensureResearchPanorama().then(() => {
+      if (state.view === "research") renderResearch({ skipReadinessFetch: true, skipPanoramaFetch: true });
+    });
+  }
+  if (tabEarly === "model" && !state.predictiveLabPackLoaded) {
+    ensurePredictiveLabPack().then(() => {
+      if (state.view === "research") renderResearch({ skipReadinessFetch: true, skipPanoramaFetch: true });
+    });
+  }
+  if (tabEarly === "model" && !state.researchPanorama) {
+    ensureResearchPanorama().then(() => {
+      if (state.view === "research") renderResearch({ skipReadinessFetch: true, skipPanoramaFetch: true });
     });
   }
   const rows = clients();
@@ -1539,7 +2131,7 @@ function renderResearch({ skipReadinessFetch = false } = {}) {
   ).join("");
   const banner = `
     <div class="research-banner">
-      <strong>Pesquisa Preditiva</strong> — população metodológica separada do recorte operacional (ativos).
+      <strong>Laboratório Preditivo</strong> — pesquisa offline separada do operacional (ativos).
       <div class="field-inline">
         <label class="field" style="margin:0">
           <span>População do estudo</span>
@@ -1548,8 +2140,8 @@ function renderResearch({ skipReadinessFetch = false } = {}) {
       </div>
     </div>`;
   const tabs = `<div class="tabs-inline research-tabs" role="tablist">${researchTabButtons()}</div>`;
-  const modelingOnly = state.researchTab === "modeling" && state.modelingResults?.status === "ok";
-  if (!rows.length && !modelingOnly) {
+  const labStandalone = ["panorama", "hsfuture", "how", "model"].includes(tabEarly);
+  if (!rows.length && !labStandalone) {
     const loading = state.loadStatus === "loading" || state.loadStatus === "idle";
     el.view.innerHTML = `${banner}${tabs}${researchStateBanner()}<p class="empty">${loading ? "Carregando snapshot operacional…" : "Nenhum cliente no recorte. Amplie a população do estudo ou relaxe filtros."}</p>`;
     bindResearchTabs();
@@ -1561,12 +2153,40 @@ function renderResearch({ skipReadinessFetch = false } = {}) {
     return;
   }
   let body = "";
-  if (state.researchTab === "audit") body = renderResearchAudit(rows, audit);
-  else if (state.researchTab === "validation") body = renderResearchValidation(rows);
-  else if (state.researchTab === "modeling") body = renderResearchModeling(audit);
-  else body = renderResearchStudy(rows, audit);
-  el.view.innerHTML = `${banner}${tabs}${body}`;
+  const tab = normalizeResearchTab(state.researchTab);
+  state.researchTab = tab;
+  let panoramaBind = null;
+  if (tab === "panorama") {
+    const pan = renderResearchPanorama(state.researchPanorama, researchPanoramaUi(), {
+      onReport: () => openPredictiveExecutiveReport(state.researchPanorama, state.weights),
+    });
+    if (!pan || typeof pan.html !== "string") {
+      body = `<section class="card error-state"><h2>Erro ao montar Panorama</h2><p>Resposta de renderização inválida — recarregue a página.</p></section>`;
+    } else {
+      body = pan.html;
+      panoramaBind = pan.bind;
+    }
+  } else if (tab === "hsfuture") body = renderResearchHsFuture();
+  else if (tab === "how") body = renderResearchLabHow(researchPanoramaUi());
+  else if (tab === "model") {
+    body = renderResearchLabModel(
+      {
+        loading: !state.predictiveLabPackLoaded,
+        labPack: state.predictiveLabPack,
+        labReference: state.researchPanorama?.labReference,
+        panorama: state.researchPanorama,
+        error: state.predictiveLabPack?.error,
+      },
+      researchPanoramaUi(),
+    );
+  } else body = renderResearchPanorama(state.researchPanorama, researchPanoramaUi()).html || "";
+  const chrome =
+    tab === "panorama"
+      ? `<p class="research-disclaimer-bar">Pesquisa histórica · separada do Health Score operacional de hoje · sem probabilidade individual publicada.</p>`
+      : banner;
+  el.view.innerHTML = `${chrome}${tabs}${body}`;
   bindResearchTabs();
+  panoramaBind?.(el.view);
   if (!skipReadinessFetch && !state.researchBundleLoaded) {
     ensureResearchBundle().then(() => {
       if (state.view === "research") renderResearch({ skipReadinessFetch: true });
@@ -1574,82 +2194,442 @@ function renderResearch({ skipReadinessFetch = false } = {}) {
   }
 }
 
-const BASE_COLUMNS = [
-  ["clientName", "Cliente"],
-  ["clientCode", "Código"],
-  ["program", "Programa"],
-  ["engineer", "EP"],
-  ["analyticalStatus", "Status"],
-  ["finalClass", "Classe"],
-  ["healthScore", "Score"],
-  ["engagementScore", "E"],
-  ["mechanismScore", "M"],
-  ["totalMeetings", "Reuniões"],
-  ["avgMeetingsPerMonth", "Média/mês"],
-  ["implementedCount", "Mecanismos"],
-  ["inProgressCount", "Em andamento"],
-  ["npsScore", "NPS"],
-  ["daysSinceEntry", "Dias de casa"],
-  ["daysSinceLastMeeting", "Recência"],
-];
+function portfolioColumnPickerHtml(visible) {
+  return PORTFOLIO_COLUMNS.filter((c) => !c.locked)
+    .map(
+      (c) =>
+        `<label class="col-picker-row"><input type="checkbox" data-col="${c.id}" ${visible.includes(c.id) ? "checked" : ""}/> ${escapeHtml(c.label)}</label>`,
+    )
+    .join("");
+}
 
-function renderBase(payload) {
-  const rows = [...clients()];
-  const { key, dir } = state.sort;
-  rows.sort((a, b) => {
-    const av = a[key];
-    const bv = b[key];
-    const an = Number(av);
-    const bn = Number(bv);
-    let cmp = 0;
-    if (Number.isFinite(an) && Number.isFinite(bn)) cmp = an - bn;
-    else cmp = String(av ?? "").localeCompare(String(bv ?? ""), "pt-BR");
-    if (String(av) === "Não informado") cmp = 1;
-    if (String(bv) === "Não informado") cmp = -1;
-    return dir === "asc" ? cmp : -cmp;
-  });
+function renderPortfolio(payload) {
+  let rows = [...clients()].map((row) => ({
+    ...row,
+    _hsDeltaLabel: row._hsDeltaLabel || "—",
+    _projectionLabel: state.hsFutureFeasible ? "Estudo" : "Simulador",
+  }));
+  const visible = state.portfolioColumnIds.filter((id) => PORTFOLIO_COLUMNS.some((c) => c.id === id));
+  const colDefs = PORTFOLIO_COLUMNS.filter((c) => visible.includes(c.id));
+  const sort = getTableSort();
+  state.sort = sort;
+  rows = sortedRowsForTable("portfolio", () => rows);
   const pg = paginate(rows, state.page, state.pageSize);
   state.page = pg.page;
   const pageRows = pg.slice;
-  const head = BASE_COLUMNS.map(([column, label]) => `<th class="sortable" data-sort="${column}">${escapeHtml(label)}${state.sort.key === column ? (state.sort.dir === "asc" ? " ↑" : " ↓") : ""}</th>`).join("");
-  const body = pageRows.map((row) => `<tr class="click-row" data-client="${escapeHtml(row.clientId)}">${BASE_COLUMNS.map(([column]) => {
-    const value = row[column];
-    let text;
-    if (column === "finalClass") text = badge(value);
-    else if (column === "clientName") text = `<span class="cell-primary">${escapeHtml(value ?? "—")}</span>`;
-    else if (column === "clientCode") text = `<span class="muted-code">${escapeHtml(value ?? "—")}</span>`;
-    else if (typeof value === "number") text = `<span class="num">${formatNum(value, column.includes("avg") ? 2 : 0)}</span>`;
-    else text = escapeHtml(value ?? "—");
-    return `<td>${text}</td>`;
-  }).join("")}</tr>`).join("");
+  const snap = filteredSnapshot();
+  const summary = snap.summary || payload.summary || {};
+  const healthDist = snap.healthDistribution || distribution(payload, "health");
+  const noMeet = rows.filter((r) => !r.totalMeetings).length;
+  const withM = rows.filter((r) => (r.implementedCount || 0) > 0).length;
+  const manyCols = visible.length > 9;
+  const head = colDefs
+    .map((c) => {
+      const sk = c.sortKey || c.id;
+      return `<th class="sortable" data-sort="${sk}">${escapeHtml(c.label)}${sort.key === sk ? (sort.dir === "asc" ? " ↑" : " ↓") : ""}</th>`;
+    })
+    .join("");
+  const body = pageRows
+    .map((row) => {
+      const cells = colDefs
+        .map((c) => {
+          const value = resolvePortfolioCell(row, c.id);
+          if (c.id === "finalClass") return `<td>${badge(value)}</td>`;
+          if (c.id === "clientName") return `<td><span class="cell-primary">${escapeHtml(value)}</span></td>`;
+          if (c.id === "healthScore") return `<td class="num">${hsScoreCell(row)}</td>`;
+          if (c.id === "engagementScore" || c.id === "mechanismScore" || c.id === "npsScore")
+            return `<td class="num">${typeof value === "number" ? formatNum(value, 0) : escapeHtml(value)}</td>`;
+          if (c.id === "lastMeetingAt") return `<td>${escapeHtml(formatDate(value))}</td>`;
+          return `<td>${escapeHtml(value ?? "—")}</td>`;
+        })
+        .join("");
+      return `<tr class="click-row" data-client="${escapeHtml(row.clientId)}">${cells}</tr>`;
+    })
+    .join("");
+  el.view.innerHTML = `
+    <section class="page-lead page-lead-compact">
+      <div class="page-lead-row">
+        <div>
+          <h2 class="page-lead-title">Carteira de clientes</h2>
+          <p class="page-lead-text">Recorte filtrado · clique na linha para perfil (histórico, mecanismos, simulador). Ordenação inicial por nome — use HS ↑/↓ ou cabeçalhos.</p>
+        </div>
+        <div class="page-lead-actions">
+          <button type="button" class="btn ghost sm" data-goto-view="base">Base analítica</button>
+          <button type="button" class="btn ghost sm" id="btnPortfolioSortHs" title="Ordenar por HS">${sort.key === "healthScore" && sort.dir === "desc" ? "HS ↓" : "HS ↑"}</button>
+          <button type="button" class="btn ghost sm" id="btnPortfolioCsv">Exportar CSV</button>
+        </div>
+      </div>
+    </section>
+    <section class="grid kpis kpis-4 portfolio-kpis">
+      ${kpi("Clientes", fmt.format(rows.length), "Filtros aplicados")}
+      ${kpi("HS médio", formatNum(summary.averageScore), payload.weights?.formula || "50/50")}
+      ${kpi("Sem reuniões", fmt.format(noMeet), "No recorte")}
+      ${kpi("Com mecanismos", fmt.format(withM), `${pctFmt.format(rows.length ? (withM / rows.length) * 100 : 0)}%`)}
+    </section>
+    <section class="card portfolio-health-strip">
+      <h3 class="section-heading-sm">Distribuição de saúde</h3>
+      ${stackShareChart(healthDist)}
+    </section>
+    <section class="card portfolio-table-card ${manyCols ? "portfolio-table-wide" : ""}">
+      <div class="portfolio-toolbar">
+        <span class="sub">${fmt.format(rows.length)} clientes · ${visible.length} colunas · 20/página</span>
+        <details class="col-picker">
+          <summary class="btn ghost sm">Personalizar colunas</summary>
+          <div class="col-picker-panel">${portfolioColumnPickerHtml(visible)}</div>
+        </details>
+      </div>
+      ${table(head, body, { compact: true })}
+      ${pagerHtml({ ...pg, idPrefix: "portfolio" })}
+    </section>
+  `;
+  el.view.querySelectorAll("[data-col]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const ids = [...el.view.querySelectorAll("[data-col]:checked")].map((n) => n.dataset.col);
+      const locked = PORTFOLIO_COLUMNS.filter((c) => c.locked).map((c) => c.id);
+      state.portfolioColumnIds = [...new Set([...locked, ...ids])];
+      saveVisibleColumnIds(state.portfolioColumnIds);
+      renderPortfolio(payload);
+    });
+  });
+  el.view.querySelectorAll("[data-goto-view]").forEach((node) => {
+    node.addEventListener("click", () => document.querySelector(`.nav-btn[data-view="${node.dataset.gotoView}"]`)?.click());
+  });
+  el.view.querySelectorAll("[data-sort]").forEach((header) =>
+    header.addEventListener("click", () => {
+      const column = header.dataset.sort;
+      const cur = getTableSort();
+      setTableSort({ key: column, dir: cur.key === column && cur.dir === "asc" ? "desc" : "asc" });
+      render();
+    }),
+  );
+  bindPager(el.view, "portfolio", {
+    getPage: () => state.page,
+    setPage: (p) => {
+      state.page = p;
+    },
+    onChange: () => render(),
+  });
+  bindTableRowClicks(el.view, { viewKey: "portfolio" });
+  document.getElementById("btnPortfolioCsv")?.addEventListener("click", downloadCsv);
+  document.getElementById("btnPortfolioSortHs")?.addEventListener("click", () => {
+    const cur = getTableSort();
+    if (cur.key === "healthScore" && cur.dir === "asc") setTableSort({ key: "healthScore", dir: "desc" });
+    else setTableSort({ key: "healthScore", dir: "asc" });
+    renderPortfolio(payload);
+  });
+}
+
+function evolutionSummaryCacheKey() {
+  const rows = clients();
+  return `${state.lastQueryKey}|n=${rows.length}|pop=${effectiveCluster()}`;
+}
+
+async function ensureEvolutionSummary() {
+  const key = evolutionSummaryCacheKey();
+  if (state.evolutionSummaryKey === key && state.evolutionSummary) return state.evolutionSummary;
+  const rows = clients();
+  const population = effectiveCluster() === "total" ? "total" : "ativos";
+  const params = new URLSearchParams({
+    population,
+    program: state.filters.program || "all",
+    engineer: state.filters.ep || "all",
+  });
+  const ids = rows.map((r) => r.clientId);
+  if (ids.length && ids.length <= 4000) params.set("clientIds", ids.join(","));
+  try {
+    const res = await fetch(`/api/portfolio-evolution-summary?${params.toString()}`);
+    const body = await res.json().catch(() => ({}));
+    state.evolutionSummary = body;
+    state.evolutionSummaryKey = key;
+    return body;
+  } catch {
+    state.evolutionSummary = { ok: false, comparable: false, message: "Não foi possível carregar o histórico comparável." };
+    state.evolutionSummaryKey = key;
+    return state.evolutionSummary;
+  }
+}
+
+function buildEvolutionFilterOptions(rows) {
+  const programs = new Set(["all"]);
+  const eps = new Set(["all"]);
+  const qualityMap = new Map([["all", "Todos"]]);
+  for (const r of rows) {
+    programs.add(r.program || "Não informado");
+    eps.add(r.engineer || "Não informado");
+    if (r.hs2a?.qualidadeCodigo) {
+      qualityMap.set(r.hs2a.qualidadeCodigo, r.hs2a.qualidadeLabel || r.hs2a.qualidadeCodigo);
+    }
+  }
+  const opt = (set, allLabel = "Todos") =>
+    [...set].sort((a, b) => (a === "all" ? -1 : String(a).localeCompare(String(b), "pt-BR"))).map((value) => ({
+      value,
+      label: value === "all" ? allLabel : value,
+    }));
+  return {
+    healthLevels: [{ value: "all", label: "Todos" }, ...HEALTH_LEVEL_ORDER.map((label) => ({ value: label, label }))],
+    programs: opt(programs),
+    eps: opt(eps),
+    qualities: [{ value: "all", label: "Todos" }, ...[...qualityMap.entries()].filter(([k]) => k !== "all").map(([value, label]) => ({ value, label }))],
+    engagementBands: E_BANDS.map((b) => ({ value: b.id, label: b.label })),
+    mechanismBands: M_BANDS.map((b) => ({ value: b.id, label: b.label })),
+  };
+}
+
+function paintEvolutionView(payload, evolution) {
+  const rows = clients();
+  const snap = filteredSnapshot();
+  const composition = buildHealthComposition(rows);
+  const programStats = buildProgramHealthStats(rows);
+  const epStats = buildEpHealthStats(rows);
+  let tableRows = filterAccompanimentRows(accompanimentDefaultRows(rows), state.evolutionLocalFilters);
+  if (state.evolutionSort) {
+    const { key, dir } = state.evolutionSort;
+    tableRows = [...tableRows].sort((a, b) => {
+      const av = key === "factor" ? primaryObservedFactor(a) : a[key];
+      const bv = key === "factor" ? primaryObservedFactor(b) : b[key];
+      const an = Number(av);
+      const bn = Number(bv);
+      let cmp = Number.isFinite(an) && Number.isFinite(bn) ? an - bn : String(av ?? "").localeCompare(String(bv ?? ""), "pt-BR");
+      return dir === "asc" ? cmp : -cmp;
+    });
+  }
+  const pg = paginate(tableRows, state.evolutionPage, state.pageSize);
+  state.evolutionPage = pg.page;
+  const pageRows = pg.slice;
+  const head = `<th class="sortable" data-sort="clientName">Cliente</th><th>Programa</th><th>EP</th><th class="sortable num" data-sort="healthScore">HS</th><th>Classificação</th><th>Qualidade</th><th>Fator observado</th><th></th>`;
+  const body = pageRows
+    .map(
+      (row) =>
+        `<tr class="click-row" data-client="${escapeHtml(row.clientId)}"><td><span class="cell-primary">${escapeHtml(row.clientName)}</span></td><td>${escapeHtml(row.program)}</td><td>${escapeHtml(row.engineer)}</td><td class="num">${hsScoreCell(row)}</td><td>${badge(row.finalClass)}</td><td>${escapeHtml(row.hs2a?.qualidadeLabel || "—")}</td><td class="evo-factor">${escapeHtml(primaryObservedFactor(row))}</td><td><span class="linkish">Perfil</span></td></tr>`,
+    )
+    .join("");
+  el.view.innerHTML = renderHealthEvolutionPage({
+    summary: snap.summary,
+    healthDistribution: snap.healthDistribution,
+    composition,
+    programStats,
+    epStats,
+    evolution,
+    weights: payload.weights,
+    metaGeneratedAt: payload.metadata?.generatedAt,
+    tableHtml: table(head, body, { compact: true, sticky: true }),
+    pagerHtml: pagerHtml({ ...pg, idPrefix: "evolution" }),
+    filterOptions: buildEvolutionFilterOptions(rows),
+    localFilters: state.evolutionLocalFilters,
+    helpers: { escapeHtml, formatNum, fmt, pctFmt, kpi, badge, hsScoreCell, tipIcon },
+  });
+  bindHealthEvolutionPage(el.view, {
+    onRefresh: () => {
+      state.evolutionSummaryKey = "";
+      loadData({ refresh: true });
+    },
+    onReport: () => {
+      const r = openHealthEvolutionReport({
+        summary: snap.summary,
+        rows,
+        weights: state.weights,
+        filters: state.filters,
+        meta: payload.metadata,
+        healthDistribution: snap.healthDistribution,
+        composition,
+        programStats,
+        epStats,
+        evolution,
+      });
+      showReportToast(r);
+    },
+    onRowClick: (id) => openDetail(id),
+    onPager: (root) =>
+      bindPager(root, "evolution", {
+        getPage: () => state.evolutionPage,
+        setPage: (p) => {
+          state.evolutionPage = p;
+        },
+        onChange: () => paintEvolutionView(payload, evolution),
+      }),
+    onSort: (column) => {
+      const cur = state.evolutionSort || { key: "healthScore", dir: "asc" };
+      state.evolutionSort = {
+        key: column,
+        dir: cur.key === column && cur.dir === "asc" ? "desc" : "asc",
+      };
+      paintEvolutionView(payload, evolution);
+    },
+    onLocalFilter: (key, value) => {
+      state.evolutionLocalFilters = { ...state.evolutionLocalFilters, [key]: value };
+      state.evolutionPage = 1;
+      paintEvolutionView(payload, evolution);
+    },
+  });
+  bindTipTriggers(el.view);
+}
+
+function renderEvolution() {
+  const payload = state.payload;
+  if (!payload) {
+    el.view.innerHTML = skeleton();
+    return;
+  }
+  const reqId = ++state.evolutionRequestId;
+  const cached =
+    state.evolutionSummaryKey === evolutionSummaryCacheKey() ? state.evolutionSummary : { comparable: false, loading: true };
+  paintEvolutionView(payload, cached);
+  ensureEvolutionSummary().then((evolution) => {
+    if (reqId !== state.evolutionRequestId || state.view !== "evolution") return;
+    paintEvolutionView(payload, evolution);
+  });
+}
+
+function analyticalHelpers() {
+  return { formatDate, formatNum, fmt };
+}
+
+function filterBaseRows(rows) {
+  const q = state.baseSearch.trim().toLowerCase();
+  if (!q) return rows;
+  return rows.filter((row) =>
+    [
+      row.clientName,
+      row.clientCode,
+      row.program,
+      row.engineer,
+      row.analyticalStatus,
+      row.finalClass,
+      row.hs2a?.perfilLabel,
+      row.hs2a?.qualidadeLabel,
+    ].some((v) => String(v || "").toLowerCase().includes(q)),
+  );
+}
+
+function analyticalColumnPickerHtml(visible) {
+  return ANALYTICAL_GROUPS.map((g) => {
+    const cols = ANALYTICAL_COLUMNS.filter((c) => c.group === g.id && !c.locked);
+    if (!cols.length) return "";
+    const selected = cols.filter((c) => visible.includes(c.id)).length;
+    const inner = cols
+      .map(
+        (c) =>
+          `<label class="col-picker-row"><input type="checkbox" data-base-col="${c.id}" ${visible.includes(c.id) ? "checked" : ""}/> ${escapeHtml(c.label)}</label>`,
+      )
+      .join("");
+    return `<details class="col-picker-group-fold" open>
+      <summary class="col-picker-group">${escapeHtml(g.label)} <span class="col-picker-count">${selected}/${cols.length}</span></summary>
+      <div class="col-picker-group-actions">
+        <button type="button" class="btn ghost xs" data-base-group="${g.id}" data-base-group-action="all">Marcar grupo</button>
+        <button type="button" class="btn ghost xs" data-base-group="${g.id}" data-base-group-action="none">Limpar grupo</button>
+      </div>
+      ${inner}
+    </details>`;
+  }).join("");
+}
+
+function renderBase(payload) {
+  const visible = state.baseColumnIds.filter((id) => ANALYTICAL_COLUMNS.some((c) => c.id === id));
+  const colDefs = ANALYTICAL_COLUMNS.filter((c) => visible.includes(c.id));
+  const helpers = analyticalHelpers();
+  const sort = getTableSort();
+  state.sort = sort;
+  let rows = sortedRowsForTable("base", () => filterBaseRows([...clients()]));
+  const pg = paginate(rows, state.page, state.pageSize);
+  state.page = pg.page;
+  const pageRows = pg.slice;
+  const manyCols = visible.length > 10;
+  const head = colDefs
+    .map((c) => {
+      const sk = c.sortKey || c.id;
+      return `<th class="sortable" data-sort="${sk}">${escapeHtml(c.label)}${sort.key === sk ? (sort.dir === "asc" ? " ↑" : " ↓") : ""}</th>`;
+    })
+    .join("");
+  const body = pageRows
+    .map((row) => {
+      const cells = colDefs.map((c) => renderAnalyticalTd(row, c.id, helpers)).join("");
+      return `<tr class="click-row" data-client="${escapeHtml(row.clientId)}">${cells}</tr>`;
+    })
+    .join("");
   const counts = payload.metadata?.counts || {};
   const missingEntry = rows.filter((row) => !row.entryDate).length;
   const missingNps = rows.filter((row) => row.npsScore == null).length;
   const missingEp = rows.filter((row) => row.engineer === "Não informado").length;
   el.view.innerHTML = `
-    ${card("Tabela consolidada", `${fmt.format(rows.length)} clientes · clique na linha para detalhe · CSV exporta o recorte completo`, `
-      ${table(head, body, { compact: true, sticky: true })}
-      ${pagerHtml({ ...pg, idPrefix: "base" })}
-    `)}
-    <section class="grid cards-2" style="margin-top:12px">
-      ${card("Qualidade no recorte", "Ausências e cobertura na tabela atual.", `<div class="cols"><span>Sem data de entrada</span><strong>${fmt.format(missingEntry)} · ${pctFmt.format(rows.length ? (missingEntry / rows.length) * 100 : 0)}%</strong><span>Sem NPS</span><strong>${fmt.format(missingNps)} · ${pctFmt.format(rows.length ? (missingNps / rows.length) * 100 : 0)}%</strong><span>EP não informado</span><strong>${fmt.format(missingEp)}</strong><span>Sem reunião</span><strong>${fmt.format(rows.filter((row) => !row.totalMeetings).length)}</strong><span>Sem mecanismo implantado</span><strong>${fmt.format(rows.filter((row) => !row.implementedCount).length)}</strong></div>`)}
-      ${card("Volume carregado da BASE QV", "Antes dos filtros de tela. O dashboard ainda exclui casos isolados locais.", `<div class="cols"><span>Clientes</span><strong>${fmt.format(counts.clients || 0)}</strong><span>Reuniões</span><strong>${fmt.format(counts.clientMeetings || 0)}</strong><span>Reuniões manuais</span><strong>${fmt.format(counts.manualMeetings || 0)}</strong><span>Mecanismos</span><strong>${fmt.format(counts.clientMecanismos || 0)}</strong><span>NPS</span><strong>${fmt.format(counts.npsResponses || 0)}</strong><span>Cancelamentos</span><strong>${fmt.format(counts.cancellations || 0)}</strong></div>`)}
+    <section class="page-lead page-lead-compact">
+      <div class="page-lead-row">
+        <div>
+          <h2 class="page-lead-title">Base analítica</h2>
+          <p class="page-lead-text">Explorador técnico autorizado · mesmos HS/E/M e pesos (${payload.weights?.formula || "50/50"}) do restante do painel. Ordenação inicial por nome; 0, — e n/a têm significados distintos.</p>
+        </div>
+        <div class="page-lead-actions">
+          <button type="button" class="btn ghost sm" data-goto-view="portfolio">Carteira de clientes</button>
+          <button type="button" class="btn ghost sm" id="btnBaseSortHs" title="Alternar ordenação por Health Score">${sort.key === "healthScore" && sort.dir === "desc" ? "HS ↓" : "HS ↑"}</button>
+          <button type="button" class="btn ghost sm" id="btnBaseCsv">Exportar CSV</button>
+        </div>
+      </div>
     </section>
-    ${card("Dicionário", "Indicadores já calculados e o uso possível no estudo. Nada disso treina um modelo.", table("<th>Indicador</th><th>Leitura</th><th>Uso no estudo</th>", [
-      ["Health Score", "E e M ponderados. Padrão 50/50. Experimental.", "Candidato a preditor de churn e renovação"],
-      ["E", "Média de reuniões válidas por mês do ciclo.", "Engajamento e queda de atividade"],
-      ["M", "Mecanismos implantados. Em andamento não pontua.", "Adoção e permanência"],
-      ["Em implantação", "Menos de 90 dias, M = 0 e ciclo 1.", "Tenure curto"],
-      ["Sem registro", "Zero reuniões e zero mecanismos.", "Desengajamento"],
-      ["Recência", "Dias desde a última reunião válida.", "Deterioração do relacionamento"],
-      ["NPS", "Última resposta válida, de 0 a 10.", "Satisfação, quando houver resposta"],
-      ["Renovado", "Ciclo maior que 1.", "Alvo de renovação, não o funil completo"],
-      ["Cancelamento", "Evidência analítica já usada no dashboard.", "Alvo de churn neste recorte"],
-    ].map(([name, text, use]) => `<tr><td>${escapeHtml(name)}</td><td>${escapeHtml(text)}</td><td>${escapeHtml(use)}</td></tr>`).join("")))}
+    <section class="card portfolio-table-card ${manyCols ? "portfolio-table-wide" : ""}">
+      <div class="portfolio-toolbar">
+        <input type="search" id="baseTableSearch" class="input" placeholder="Buscar cliente, código, programa, EP…" value="${escapeHtml(state.baseSearch)}" />
+        <details class="col-picker col-picker-base">
+          <summary class="btn ghost sm">Colunas por categoria (${visible.length})</summary>
+          <div class="col-picker-panel col-picker-panel-wide">${analyticalColumnPickerHtml(visible)}</div>
+        </details>
+        <span class="sub">${fmt.format(rows.length)} linhas · ${visible.length} colunas · 20/página</span>
+      </div>
+      ${table(head, body, { compact: true })}
+      ${pagerHtml({ ...pg, idPrefix: "base" })}
+    </section>
+    <section class="grid cards-2" style="margin-top:12px">
+      ${card("Qualidade no recorte", "Valores ausentes (—) na tabela.", `<div class="cols"><span>Sem data de entrada</span><strong>${fmt.format(missingEntry)} · ${pctFmt.format(rows.length ? (missingEntry / rows.length) * 100 : 0)}%</strong><span>Sem NPS</span><strong>${fmt.format(missingNps)} · ${pctFmt.format(rows.length ? (missingNps / rows.length) * 100 : 0)}%</strong><span>EP não informado</span><strong>${fmt.format(missingEp)}</strong><span>Sem reunião</span><strong>${fmt.format(rows.filter((row) => !row.totalMeetings).length)}</strong><span>Sem mecanismo implantado</span><strong>${fmt.format(rows.filter((row) => !row.implementedCount).length)}</strong></div>`)}
+      ${card("Volume carregado da BASE QV", "Somente leitura — não altera origem.", `<div class="cols"><span>Clientes</span><strong>${fmt.format(counts.clients || 0)}</strong><span>Reuniões</span><strong>${fmt.format(counts.clientMeetings || 0)}</strong><span>Reuniões manuais</span><strong>${fmt.format(counts.manualMeetings || 0)}</strong><span>Mecanismos</span><strong>${fmt.format(counts.clientMecanismos || 0)}</strong><span>NPS</span><strong>${fmt.format(counts.npsResponses || 0)}</strong><span>Cancelamentos</span><strong>${fmt.format(counts.cancellations || 0)}</strong></div>`)}
+    </section>
+    ${card("Dicionário resumido", "Campos disponíveis no drawer e nas colunas opcionais.", table("<th>Grupo</th><th>Campo</th><th>Leitura</th>", [
+      ["Cadastro", "Ciclo", "Número contratual — ciclo > 1 não prova renovação efetiva."],
+      ["HS", "E / M", "Notas discretas 0/20/60/100 conforme regras V1."],
+      ["HS", "Classificação", "Em implantação e Sem registro precedem faixas de score."],
+      ["Contratos", "Evid. cancel.", "Indício analítico — pedido não efetiva churn."],
+      ["Satisfação", "NPS", "Última resposta 0–10 quando existir."],
+      ["Histórico", "Snapshots BD", "HS congelado por execução — ver perfil do cliente."],
+    ].map(([g, n, t]) => `<tr><td>${escapeHtml(g)}</td><td>${escapeHtml(n)}</td><td>${escapeHtml(t)}</td></tr>`).join("")))}
   `;
+  document.getElementById("baseTableSearch")?.addEventListener("input", (ev) => {
+    state.baseSearch = ev.target.value;
+    state.page = 1;
+    renderBase(payload);
+  });
+  el.view.querySelectorAll("[data-base-col]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const ids = [...el.view.querySelectorAll("[data-base-col]:checked")].map((n) => n.dataset.baseCol);
+      const locked = ANALYTICAL_COLUMNS.filter((c) => c.locked).map((c) => c.id);
+      state.baseColumnIds = [...new Set([...locked, ...ids])];
+      saveAnalyticalColumnIds(state.baseColumnIds);
+      renderBase(payload);
+    });
+  });
+  el.view.querySelectorAll("[data-base-group-action]").forEach((btn) => {
+    btn.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const group = btn.dataset.baseGroup;
+      const action = btn.dataset.baseGroupAction;
+      const groupIds = ANALYTICAL_COLUMNS.filter((c) => c.group === group && !c.locked).map((c) => c.id);
+      const locked = ANALYTICAL_COLUMNS.filter((c) => c.locked).map((c) => c.id);
+      const cur = new Set(state.baseColumnIds);
+      if (action === "all") groupIds.forEach((id) => cur.add(id));
+      else groupIds.forEach((id) => cur.delete(id));
+      state.baseColumnIds = [...new Set([...locked, ...cur])];
+      saveAnalyticalColumnIds(state.baseColumnIds);
+      renderBase(payload);
+    });
+  });
+  document.getElementById("btnBaseCsv")?.addEventListener("click", () => downloadAnalyticalCsv(payload));
+  document.getElementById("btnBaseSortHs")?.addEventListener("click", () => {
+    const cur = getTableSort();
+    if (cur.key === "healthScore" && cur.dir === "asc") setTableSort({ key: "healthScore", dir: "desc" });
+    else setTableSort({ key: "healthScore", dir: "asc" });
+    renderBase(payload);
+  });
   el.view.querySelectorAll("[data-sort]").forEach((header) => header.addEventListener("click", () => {
     const column = header.dataset.sort;
-    state.sort = { key: column, dir: state.sort.key === column && state.sort.dir === "asc" ? "desc" : "asc" };
+    const cur = getTableSort();
+    setTableSort({ key: column, dir: cur.key === column && cur.dir === "asc" ? "desc" : "asc" });
     render();
   }));
   bindPager(el.view, "base", {
@@ -1659,80 +2639,69 @@ function renderBase(payload) {
     },
     onChange: () => render(),
   });
-  el.view.querySelectorAll("[data-client]").forEach((row) => row.addEventListener("click", () => openDetail(row.dataset.client)));
+  bindTableRowClicks(el.view, { viewKey: "base" });
+  el.view.querySelectorAll("[data-goto-view]").forEach((node) => {
+    node.addEventListener("click", () => document.querySelector(`.nav-btn[data-view="${node.dataset.gotoView}"]`)?.click());
+  });
 }
 
-async function openDetail(clientId) {
-  const row = clients().find((item) => item.clientId === clientId);
-  if (!row) return;
-  const h = row.hs2a || {};
-  const fatores = (h.fatores || []).map((f) => `<li>${escapeHtml(f.label)}</li>`).join("");
-  const hints = (h.verificacaoHumana || []).map((t) => `<li>${escapeHtml(t)}</li>`).join("");
-  el.dialog.innerHTML = `
-    <h2>${escapeHtml(row.clientName)}</h2>
-    <p class="sub">${escapeHtml(row.clientCode)} · ${escapeHtml(row.program)} · ${escapeHtml(row.engineer)}</p>
-    <h3 class="detail-section">Identificação</h3>
-    <div class="cols">
-      <span>Fase (2.0A)</span><strong>${escapeHtml(h.faseLabel || "—")}</strong>
-      <span>Status analítico</span><strong>${escapeHtml(row.analyticalStatus)}</strong>
-    </div>
-    <h3 class="detail-section">Health Score (V1)</h3>
-    <div class="cols">
-      <span>HS</span><strong>${formatNum(row.healthScore, 0)}</strong>
-      <span>E / M</span><strong>${formatNum(row.engagementScore, 0)} / ${formatNum(row.mechanismScore, 0)}</strong>
-      <span>Fórmula</span><strong title="Pesos da tela não alteram versão oficial persistida">${escapeHtml(h.formulaAplicada || "50/50")}</strong>
-      <span>Classificação</span><strong>${escapeHtml(row.finalClass)}</strong>
-    </div>
-    <h3 class="detail-section">Contexto 2.0A</h3>
-    <div class="cols">
-      <span>Qualidade informacional</span><strong>${escapeHtml(h.qualidadeLabel || "—")}</strong>
-      <span>Perfil interpretativo</span><strong>${escapeHtml(h.perfilLabel || "—")}</strong>
-      <span>Reuniões</span><strong>${fmt.format(row.totalMeetings || 0)} · ${escapeHtml(h.coberturaReunioes || "")}</strong>
-      <span>Última reunião</span><strong>${escapeHtml(formatDate(row.lastMeetingAt))}</strong>
-      <span>Mecanismos</span><strong>${fmt.format(row.implementedCount || 0)} · ${escapeHtml(h.coberturaMecanismos || "")}</strong>
-      <span>Relacionamento</span><strong>${h.entradaConfiavel ? `${fmt.format(h.diasRelacionamento)} dias` : "Tempo incerto"}</strong>
-    </div>
-    <h3 class="detail-section">Interpretação</h3>
-    <ul class="plain-list">${fatores || "<li>Sem fatores destacados.</li>"}</ul>
-    ${hints ? `<p class="sub">Verificação sugerida:</p><ul class="plain-list">${hints}</ul>` : ""}
-    <div id="hsHistoryBlock"><p class="note">Carregando histórico observável…</p></div>
-    <button type="button" class="btn ghost" id="closeDetail" style="margin-top:12px">Fechar</button>
-  `;
-  document.getElementById("closeDetail").addEventListener("click", () => el.dialog.close());
-  el.dialog.showModal();
-  try {
-    const block = document.getElementById("hsHistoryBlock");
-    if (!block) return;
-    const snapRes = await fetch(`/api/client-snapshot-history?clientId=${encodeURIComponent(clientId)}`);
-    const snapHist = snapRes.ok ? await snapRes.json() : null;
-    if (snapHist?.ok && snapHist.points?.length) {
-      const histRows = snapHist.points
-        .map(
-          (p) =>
-            `<tr><td>${escapeHtml(p.dia)}</td><td class="num">${p.hs == null ? "—" : formatNum(p.hs, 0)}</td><td class="num">${p.e == null ? "—" : formatNum(p.e, 0)}</td><td class="num">${p.m == null ? "—" : formatNum(p.m, 0)}</td><td>${escapeHtml(p.classe || "")}</td></tr>`,
-        )
-        .join("");
-      block.innerHTML = `${card("Evolução (snapshots Business Data)", "Pseudonimizado · HS V1 congelado por execução", table("<th>Ref.</th><th class='num'>HS</th><th class='num'>E</th><th class='num'>M</th><th>Classe</th>", histRows))}`;
-      return;
-    }
-    const res = await fetch(`/api/client-hs-history?clientId=${encodeURIComponent(clientId)}`);
-    const hist = res.ok ? await res.json() : null;
-    if (!hist?.available || !hist.points?.length) {
-      block.innerHTML = `<p class="note">${escapeHtml(snapHist?.error || hist?.nota || hist?.reason || "Histórico indisponível — configure Business Data ou use Engajamento.")}</p>`;
-      return;
-    }
-    const histRows = hist.points
-      .slice(-8)
+async function fetchClientHistoryPanel(panel, clientId) {
+  const snapRes = await fetch(`/api/client-snapshot-history?clientId=${encodeURIComponent(clientId)}`);
+  const snapHist = snapRes.ok ? await snapRes.json() : null;
+  if (snapHist?.ok && snapHist.points?.length) {
+    const histRows = snapHist.points
       .map(
         (p) =>
-          `<tr><td>${escapeHtml(p.mes)}</td><td class="num">${p.hs == null ? "—" : formatNum(p.hs, 0)}</td><td class="num">${p.e == null ? "—" : formatNum(p.e, 0)}</td><td class="num">${p.m == null ? "—" : formatNum(p.m, 0)}</td><td class="num">${p.reunioes ?? "—"}</td><td>${escapeHtml(p.confiabilidade || "")}</td></tr>`,
+          `<tr><td>${escapeHtml(p.dia)}</td><td class="num">${p.hs == null ? "—" : formatNum(p.hs, 0)}</td><td class="num">${p.e == null ? "—" : formatNum(p.e, 0)}</td><td class="num">${p.m == null ? "—" : formatNum(p.m, 0)}</td><td>${escapeHtml(p.classe || "")}</td></tr>`,
       )
       .join("");
-    block.innerHTML = `${card("Evolução (pesquisa point-in-time)", escapeHtml(hist.nota || ""), table("<th>Mês</th><th class='num'>HS</th><th class='num'>E</th><th class='num'>M</th><th class='num'>Reuniões</th><th>Reconstr.</th>", histRows))}`;
-  } catch {
-    const block = document.getElementById("hsHistoryBlock");
-    if (block) block.innerHTML = `<p class="note">Não foi possível carregar histórico.</p>`;
+    panel.innerHTML = card(
+      "Histórico observado (Business Data)",
+      "Snapshots reais — HS V1 congelado por execução",
+      table("<th>Ref.</th><th class='num'>HS</th><th class='num'>E</th><th class='num'>M</th><th>Classe</th>", histRows),
+    );
+    return;
   }
+  const res = await fetch(`/api/client-hs-history?clientId=${encodeURIComponent(clientId)}`);
+  const hist = res.ok ? await res.json() : null;
+  if (!hist?.available || !hist.points?.length) {
+    panel.innerHTML = `<p class="note">${escapeHtml(snapHist?.error || hist?.nota || hist?.reason || "Sem histórico comparável — aguardando snapshots ou export de pesquisa.")}</p>`;
+    return;
+  }
+  const histRows = hist.points
+    .slice(-12)
+    .map(
+      (p) =>
+        `<tr><td>${escapeHtml(p.mes)}</td><td class="num">${p.hs == null ? "—" : formatNum(p.hs, 0)}</td><td class="num">${p.e == null ? "—" : formatNum(p.e, 0)}</td><td class="num">${p.m == null ? "—" : formatNum(p.m, 0)}</td><td class="num">${p.reunioes ?? "—"}</td><td>${escapeHtml(p.confiabilidade || "")}</td></tr>`,
+    )
+    .join("");
+  panel.innerHTML = card(
+    "Histórico reconstruído (pesquisa)",
+    escapeHtml(hist.nota || "Point-in-time — não misturar com operacional"),
+    table("<th>Mês</th><th class='num'>HS</th><th class='num'>E</th><th class='num'>M</th><th class='num'>Reuniões</th><th>Conf.</th>", histRows),
+  );
+}
+
+async function openDetail(clientId, { viewKey = state.view === "base" ? "base" : "portfolio" } = {}) {
+  const row = clients().find((item) => String(item.clientId) === String(clientId));
+  if (!row) return;
+  state.selectedId = clientId;
+  const neighborIds = neighborClientIds(viewKey === "base" ? "base" : "portfolio");
+  mountClientProfile({
+    dialog: el.dialog,
+    row,
+    weights: state.weights,
+    hsFutureFeasible: state.hsFutureFeasible,
+    churnModelOperational: false,
+    neighborIds,
+    onNavigate: (id) => openDetail(id, { viewKey }),
+    helpers: { escapeHtml, formatNum, formatDate, fmt },
+    fetchHistory: (panel) => fetchClientHistoryPanel(panel, clientId),
+    onClose: () => {
+      state.selectedId = null;
+    },
+  });
+  openClientDrawer(el.dialog);
 }
 
 function renderFatalView(message, { retry = true } = {}) {
@@ -1757,9 +2726,14 @@ function safeRender() {
     el.eyebrow.textContent = eyebrow;
     el.title.textContent = title;
     renderScoreSlot();
+    updateGlobalWeightBadge();
+    applyFiltersSticky();
     updateFilterNote();
+    refreshSystemBannersForView();
     if (state.view === "overview") renderOverview(payload);
+    else if (state.view === "portfolio") renderPortfolio(payload);
     else if (state.view === "health") renderHealth(payload);
+    else if (state.view === "evolution") renderEvolution();
     else if (state.view === "engagement") renderEngagement();
     else if (state.view === "mechanisms") renderMechanisms();
     else if (state.view === "nps") renderNps(payload);
@@ -1775,7 +2749,10 @@ function safeRender() {
 }
 
 function render() {
+  const t0 = performance.now();
   safeRender();
+  state.lastRenderMs = Math.round(performance.now() - t0);
+  if (state.lastRenderMs >= 0) console.debug("[nav render]", state.view, `${state.lastRenderMs}ms`);
 }
 
 async function fetchJson(url, { timeoutMs = API_TIMEOUT_MS } = {}) {
@@ -1811,9 +2788,16 @@ async function loadData({ refresh = false } = {}) {
     if (!response.ok) throw new Error(body.error || "Falha na API principal.");
     if (!Array.isArray(body.clients)) throw new Error("Payload sem lista de clientes.");
     if (requestId !== state.requestId) return;
+    const qKey = queryParams().toString();
+    const resetPage = refresh || qKey !== state.lastQueryKey;
     state.payload = body;
     state.hs2aLabSnapshot = body.metadata?.hs2aLab || null;
-    state.page = 1;
+    if (resetPage) {
+      state.page = 1;
+      state.evolutionPage = 1;
+      state.evolutionSummaryKey = "";
+    }
+    state.lastQueryKey = qKey;
     applyOptions(body);
     const meta = body.metadata || {};
     const ms = Math.round(performance.now() - started);
@@ -1822,6 +2806,7 @@ async function loadData({ refresh = false } = {}) {
       : `Atualizado · ${ms} ms`;
     state.loadStatus = "ready";
     hideError();
+    loadMonitoringHistory().catch(() => {});
     safeRender();
   } catch (error) {
     if (requestId !== state.requestId) return;
@@ -1840,19 +2825,15 @@ function scheduleLoad() {
   state.debounce = setTimeout(() => loadData(), 280);
 }
 
-function setWeights(changed, value) {
-  const primary = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
-  const secondary = 100 - primary;
-  state.weights = changed === "mechanism"
-    ? { engagement: secondary, mechanism: primary }
-    : { engagement: primary, mechanism: secondary };
+function setWeights(engagementValue) {
+  state.weights = weightsFromEngagement(engagementValue);
   localStorage.setItem(WEIGHT_KEY, JSON.stringify(state.weights));
-  paintScorePanel();
+  paintBalancePanel(el.scoreSlot, state.weights);
+  updateGlobalWeightBadge();
   if (state.payload?.clients?.length) {
     state.payload = applyWeightsToPayload(state.payload, state.weights);
-    if (state.view === "health" || state.view === "overview") safeRender();
+    render();
   }
-  scheduleLoad();
 }
 
 function downloadCsv() {
@@ -1862,30 +2843,57 @@ function downloadCsv() {
 function downloadGerencialCsv() {
   const params = queryParams();
   params.set("export", "gerencial");
+  params.set("weights", `${state.weights.engagement}/${state.weights.mechanism}`);
   window.location.href = `/api/health-score.csv?${params.toString()}`;
+}
+
+function downloadAnalyticalCsv(payload) {
+  const helpers = analyticalHelpers();
+  const rows = sortedRowsForTable("base", () => filterBaseRows([...clients()]));
+  const visible = state.baseColumnIds.filter((id) => ANALYTICAL_COLUMNS.some((c) => c.id === id));
+  const csv = analyticalRowsToCsv(rows, visible, helpers);
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const day = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `base-analitica-${day}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function bind() {
   document.querySelectorAll(".nav-icon").forEach((node) => { node.innerHTML = ICONS[node.dataset.icon] || ""; });
   document.querySelectorAll(".nav-btn").forEach((button) => button.addEventListener("click", () => {
     const next = button.dataset.view;
-    const wasResearch = state.view === "research";
+    const prev = state.view;
+    if (next === prev) {
+      el.shell.classList.remove("nav-open");
+      return;
+    }
     state.view = next;
     document.querySelectorAll(".nav-btn").forEach((item) => item.classList.toggle("active", item === button));
     el.shell.classList.remove("nav-open");
-    if (next === "research" && !wasResearch) {
+    if (shouldRefetchOnEnterResearch(prev, next)) {
       if (!state.researchBundleLoaded) ensureResearchBundle();
-      loadData();
-    } else if (next === "quality") {
-      state.monitoringLoaded = false;
+      if (normalizeResearchTab(state.researchTab) === "panorama") ensureResearchPanorama();
+      if (normalizeResearchTab(state.researchTab) === "model") ensurePredictiveLabPack();
       render();
-    } else if (wasResearch && next !== "research") loadData();
-    else render();
+      loadData();
+    } else if (shouldRefetchOnLeaveResearch(prev, next)) {
+      loadData();
+    } else {
+      render();
+    }
   }));
   document.getElementById("btnCollapse").addEventListener("click", () => {
-    const collapsed = el.shell.classList.toggle("collapsed");
-    document.getElementById("btnCollapse").setAttribute("aria-expanded", String(!collapsed));
-    localStorage.setItem(SIDEBAR_KEY, collapsed ? "1" : "0");
+    el.shell.classList.toggle("collapsed");
+    localStorage.setItem(SIDEBAR_KEY, el.shell.classList.contains("collapsed") ? "1" : "0");
+    syncSidebarToggleUi();
+  });
+  document.querySelectorAll(".nav-btn").forEach((btn) => {
+    const label = btn.querySelector(".nav-label")?.textContent?.trim();
+    if (label) btn.setAttribute("title", label);
   });
   document.getElementById("btnNav").addEventListener("click", () => el.shell.classList.toggle("nav-open"));
   document.getElementById("backdrop").addEventListener("click", () => el.shell.classList.remove("nav-open"));
@@ -1895,7 +2903,12 @@ function bind() {
     loadData();
   }));
   el.search.addEventListener("input", () => { captureFilters(); scheduleLoad(); });
-  el.pin.addEventListener("change", () => { state.pinned = el.pin.checked; captureFilters(); savePin(); });
+  el.pin.addEventListener("change", () => {
+    state.pinned = el.pin.checked;
+    captureFilters();
+    savePin();
+    applyFiltersSticky();
+  });
   document.getElementById("btnReset").addEventListener("click", () => {
     state.filters = { search: "", from: "", to: "", program: "all", ep: "all", finalClass: "all", cluster: "ativos" };
     syncFilterInputs();
@@ -1908,13 +2921,24 @@ function bind() {
     state.researchBundleLoaded = false;
     loadData({ refresh: true });
     ensureResearchBundle(true);
+    refreshSystemStatus();
   });
   document.getElementById("btnCsv").addEventListener("click", downloadCsv);
   document.getElementById("btnGuide").addEventListener("click", () => window.open("/guia-health-score-ceo.html", "_blank", "noopener"));
   if (localStorage.getItem(SIDEBAR_KEY) === "1") {
     el.shell.classList.add("collapsed");
-    document.getElementById("btnCollapse").setAttribute("aria-expanded", "false");
   }
+  syncSidebarToggleUi();
+  bindClientDrawer(el.dialog, {
+    onClose: () => {
+      state.selectedId = null;
+    },
+  });
+}
+
+async function refreshSystemStatus() {
+  state.systemStatus = await loadSystemStatus();
+  refreshSystemBannersForView();
 }
 
 function boot() {
@@ -1940,8 +2964,11 @@ function boot() {
     },
   });
   syncFilterInputs();
+  applyFiltersSticky();
+  window.addEventListener("ha:report-result", (ev) => showReportToast(ev.detail));
   bind();
   ensureResearchBundle();
+  refreshSystemStatus();
   loadData();
 }
 

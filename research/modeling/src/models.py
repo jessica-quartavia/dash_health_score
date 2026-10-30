@@ -66,7 +66,12 @@ class TrainedModel:
     coef_summary: list[dict]
 
 
-def build_pipeline(numeric: list[str], categorical: list[str], cfg: dict) -> Pipeline:
+def build_pipeline(
+    numeric: list[str],
+    categorical: list[str],
+    cfg: dict,
+    class_weight: str | None = "balanced",
+) -> Pipeline:
     transformers = []
     if numeric:
         transformers.append(
@@ -101,17 +106,26 @@ def build_pipeline(numeric: list[str], categorical: list[str], cfg: dict) -> Pip
     clf = LogisticRegression(
         C=float(cfg["logistic"]["C"]),
         max_iter=int(cfg["logistic"]["max_iter"]),
-        class_weight="balanced",
+        class_weight=class_weight,
         random_state=int(cfg["seed"]),
     )
     return Pipeline([("prep", pre), ("clf", clf)])
 
 
-def fit_model(model_id: str, train: pd.DataFrame, cfg: dict) -> TrainedModel:
+def fit_model(
+    model_id: str,
+    train: pd.DataFrame,
+    cfg: dict,
+    class_weight: str | None = "balanced",
+    C: float | None = None,
+) -> TrainedModel:
     spec = FEATURE_SETS[model_id]
     numeric = [c for c in spec["numeric"] if c in train.columns]
     categorical = [c for c in spec["categorical"] if c in train.columns]
-    pipe = build_pipeline(numeric, categorical, cfg)
+    local_cfg = cfg
+    if C is not None:
+        local_cfg = {**cfg, "logistic": {**cfg.get("logistic", {}), "C": C}}
+    pipe = build_pipeline(numeric, categorical, local_cfg, class_weight=class_weight)
     X = train[numeric + categorical]
     y = train["y"]
     pipe.fit(X, y)

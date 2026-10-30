@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Health Analytics · Clientes</title>
+  <title>Health Analytics 3.0 · Clientes</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -18,23 +18,28 @@
         <span class="mark" aria-hidden="true">HA</span>
         <span class="brand-copy">
           <strong>Health Analytics</strong>
-          <small>Inteligência de Clientes</small>
+          <small>Plataforma de carteira · v3</small>
         </span>
       </div>
       <nav class="nav" aria-label="Seções">
-        <p class="nav-group">Executivo</p>
+        <p class="nav-group">Principal</p>
         <button type="button" class="nav-btn active" data-view="overview"><span class="nav-icon" data-icon="grid"></span><span class="nav-label">Visão Geral</span></button>
+        <button type="button" class="nav-btn" data-view="portfolio"><span class="nav-icon" data-icon="briefcase"></span><span class="nav-label">Carteira de Clientes</span></button>
         <button type="button" class="nav-btn" data-view="health"><span class="nav-icon" data-icon="pulse"></span><span class="nav-label">Health Score</span></button>
-        <button type="button" class="nav-btn" data-view="quality"><span class="nav-icon" data-icon="shield"></span><span class="nav-label">Qualidade e Monitoramento</span></button>
-        <p class="nav-group">Relacionamento</p>
+        <button type="button" class="nav-btn" data-view="evolution"><span class="nav-icon" data-icon="trend"></span><span class="nav-label">Saúde e Evolução</span></button>
+        <p class="nav-group">Análises</p>
         <button type="button" class="nav-btn" data-view="engagement"><span class="nav-icon" data-icon="users"></span><span class="nav-label">Engajamento</span></button>
         <button type="button" class="nav-btn" data-view="mechanisms"><span class="nav-icon" data-icon="layers"></span><span class="nav-label">Mecanismos</span></button>
         <button type="button" class="nav-btn" data-view="nps"><span class="nav-icon" data-icon="relate"></span><span class="nav-label">NPS e Correlações</span></button>
-        <p class="nav-group">Dados &amp; pesquisa</p>
+        <button type="button" class="nav-btn" data-view="quality"><span class="nav-icon" data-icon="shield"></span><span class="nav-label">Qualidade dos Dados</span></button>
+        <p class="nav-group">Pesquisa</p>
+        <button type="button" class="nav-btn" data-view="research"><span class="nav-icon" data-icon="study"></span><span class="nav-label">Laboratório Preditivo</span></button>
         <button type="button" class="nav-btn" data-view="base"><span class="nav-icon" data-icon="table"></span><span class="nav-label">Base Analítica</span></button>
-        <button type="button" class="nav-btn" data-view="research"><span class="nav-icon" data-icon="study"></span><span class="nav-label">Pesquisa Preditiva</span></button>
       </nav>
-      <button type="button" class="collapse-btn" id="btnCollapse" aria-expanded="true">Recolher menu</button>
+      <button type="button" class="sidebar-toggle" id="btnCollapse" aria-expanded="true" aria-label="Recolher menu">
+        <span class="sidebar-toggle-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></span>
+        <span class="sidebar-toggle-label">Recolher menu</span>
+      </button>
     </aside>
 
     <div class="workspace">
@@ -45,56 +50,67 @@
           <h1 id="viewTitle">Visão Geral</h1>
         </div>
         <div class="top-actions">
+          <p class="hs-weight-badge" id="hsWeightBadge" hidden title="Pesos experimentais do Health Score nesta sessão"></p>
           <p class="meta" id="metaLine">Carregando…</p>
-          <button type="button" class="btn ghost" id="btnGuide">Guia</button>
-          <button type="button" class="btn ghost" id="btnCsv">Exportar CSV</button>
-          <button type="button" class="btn" id="btnRefresh">Atualizar</button>
+          <button type="button" class="btn btn-outline btn-sm" id="btnGuide">Guia</button>
+          <button type="button" class="btn btn-outline btn-sm" id="btnCsv">Exportar CSV</button>
+          <button type="button" class="btn btn-primary btn-sm" id="btnRefresh">Atualizar</button>
         </div>
       </header>
 
+      <div id="systemBanners" class="system-banners-wrap" hidden aria-live="polite"></div>
       <div id="scoreSlot" hidden></div>
 
-      <section class="filters" aria-label="Filtros globais">
-        <p class="filters-label">Filtros do recorte</p>
-        <label class="field grow">
-          <span>Busca</span>
-          <input type="search" id="fSearch" placeholder="Nome, código ou ID" />
-        </label>
-        <div class="field period-field">
-          <span>Período (entrada do cliente)</span>
-          <div id="periodRoot"></div>
-          <input type="hidden" id="fFrom" />
-          <input type="hidden" id="fTo" />
+      <section class="filters filters-panel" id="filtersBar" aria-label="Filtros globais">
+        <div class="filters-head">
+          <p class="filters-label">Filtros do recorte</p>
+          <p class="filters-hint">Período = data de entrada do cliente · scores usam histórico completo</p>
         </div>
-        <label class="field">
-          <span>Programa</span>
-          <select id="fProgram"></select>
-        </label>
-        <label class="field">
-          <span>Engenheiro Patrimonial</span>
-          <select id="fEp"></select>
-        </label>
-        <label class="field">
-          <span>Classificação</span>
-          <select id="fFinal"></select>
-        </label>
-        <label class="field">
-          <span>Status do cliente</span>
-          <select id="fCluster"></select>
-        </label>
-        <label class="switch">
-          <input type="checkbox" id="fPin" checked />
-          <span>Fixar filtros</span>
-        </label>
-        <button type="button" class="btn ghost" id="btnReset">Limpar</button>
+        <div class="filters-grid filters-grid-v3">
+          <label class="field field-search">
+            <span>Busca</span>
+            <input type="search" id="fSearch" placeholder="Nome, código ou ID" />
+          </label>
+          <div class="field period-field">
+            <span>Período (entrada do cliente)</span>
+            <div id="periodRoot"></div>
+            <input type="hidden" id="fFrom" />
+            <input type="hidden" id="fTo" />
+          </div>
+          <label class="field">
+            <span>Programa</span>
+            <select id="fProgram"></select>
+          </label>
+          <label class="field">
+            <span>Engenheiro Patrimonial</span>
+            <select id="fEp"></select>
+          </label>
+          <label class="field">
+            <span>Nível de saúde</span>
+            <select id="fFinal"></select>
+          </label>
+          <label class="field">
+            <span>Status do cliente</span>
+            <select id="fCluster"></select>
+          </label>
+          <div class="filters-actions filters-actions-v3">
+            <label class="switch-ui switch-filter" title="Mantém filtros visíveis ao rolar">
+              <input type="checkbox" id="fPin" checked />
+              <span class="switch-ui-track" aria-hidden="true"></span>
+              <span class="switch-ui-label">Fixar filtros</span>
+            </label>
+            <button type="button" class="btn btn-outline btn-reset-filters" id="btnReset">Limpar</button>
+          </div>
+        </div>
       </section>
-      <p class="filter-note" id="filterNote">O período filtra clientes pela data de entrada. Os scores de cada cliente continuam calculados com o histórico completo. O recorte inicial é de clientes ativos.</p>
+      <p class="filter-note visually-compact" id="filterNote" hidden>O recorte inicial é de clientes ativos.</p>
 
       <div id="errorBanner" class="error hidden" role="alert"></div>
       <main id="view" aria-live="polite"></main>
     </div>
   </div>
-  <dialog id="detailDialog"></dialog>
+  <div id="appToast" class="app-toast" role="status" aria-live="polite" hidden></div>
+  <dialog id="detailDialog" class="client-drawer"></dialog>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
   <script type="module" src="/app.js"></script>

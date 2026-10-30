@@ -16,6 +16,14 @@
     "model:robustness": "python research/modeling/run_robustness.py",
     "model:etapa6": "python research/modeling/run_etapa6.py",
     "model:etapa7": "python research/modeling/run_etapa7.py",
+    "model:study-v2": "python research/modeling/run_study_v2.py",
+    "model:study-v15": "python research/modeling/run_study_v15.py",
+    "model:study-v16": "python research/modeling/run_study_v16.py",
+    "model:study-v17": "python research/modeling/run_study_v17.py",
+    "test:study-v2": "python -m unittest research.modeling.tests.test_study_v2",
+    "test:study-v15": "python -m unittest research.modeling.tests.test_study_v15",
+    "test:study-v16": "python -m unittest research.modeling.tests.test_study_v16",
+    "test:study-v17": "python -m unittest research.modeling.tests.test_study_v17",
     "test:robustness": "python -m unittest research/modeling/tests/test_robustness.py",
     "test:etapa6": "python -m unittest research/modeling/tests/test_etapa6.py",
     "test:etapa7": "python -m unittest research/modeling/tests/test_etapa7.py",
@@ -29,6 +37,8 @@
     "monitoring:persist-test": "node scripts/run-monitoring-pipeline.mjs --persist-business-data",
     "monitoring:check-bd": "node scripts/check-business-data-env.mjs",
     "monitoring:ensure-secrets": "node scripts/ensure-monitoring-secrets.mjs",
-    "monitoring:test-trigger": "node scripts/test-pipeline-trigger.mjs"
+    "monitoring:test-trigger": "node scripts/test-pipeline-trigger.mjs",
+    "research:hs-weights": "node scripts/run-hs-weight-study.mjs",
+    "research:hs-future": "node scripts/run-hs-future-feasibility.mjs"
   }
 }

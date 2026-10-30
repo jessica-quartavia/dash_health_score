@@ -12,7 +12,11 @@ import { handleMonitoringApi } from "../lib/api/monitoring-handler.mjs";
 import { handleMonitoringHistoryApi } from "../lib/api/monitoring-history-handler.mjs";
 import { handlePipelineTriggerApi } from "../lib/api/pipeline-trigger-handler.mjs";
 import { handleResearchBundleApi } from "../lib/api/research-handler.mjs";
+import { handleResearchPanoramaApi } from "../lib/api/research-panorama-handler.mjs";
+import { handleSystemStatusApi } from "../lib/api/system-status-handler.mjs";
 import { loadResearchArtifacts } from "../lib/research/artifact-loader.mjs";
+import { sendApiNotFound, serveJsonArtifactFile } from "../lib/api/json-artifact.mjs";
+import { handlePredictiveLabReferenceApi } from "../lib/api/predictive-lab-reference-handler.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const PORT = Number(process.env.PORT || 3010);
@@ -88,7 +92,31 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  if (apiPath === "/api/monitoring-history" || apiPath === "/api/client-snapshot-history") {
+  if (apiPath === "/api/research-panorama") {
+    try {
+      handleResearchPanoramaApi(req, res, url);
+    } catch (error) {
+      console.error("[dev] research-panorama", error);
+      if (!res.headersSent) sendJson(res, 500, { error: error.message });
+    }
+    return;
+  }
+
+  if (apiPath === "/api/system-status") {
+    try {
+      await handleSystemStatusApi(req, res);
+    } catch (error) {
+      console.error("[dev] system-status", error);
+      if (!res.headersSent) sendJson(res, 500, { error: error.message });
+    }
+    return;
+  }
+
+  if (
+    apiPath === "/api/monitoring-history" ||
+    apiPath === "/api/client-snapshot-history" ||
+    apiPath === "/api/portfolio-evolution-summary"
+  ) {
     try {
       const handled = await handleMonitoringHistoryApi(req, res, url);
       if (handled) return;
@@ -199,6 +227,65 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (apiPath === "/api/modeling-results-etapa4") {
+    const file = join(ROOT, "research", "modeling", "output", "modeling_results_etapa4.json");
+    if (!existsSync(file)) {
+      sendJson(res, 404, { error: "modeling_results_etapa4.json ausente." });
+      return;
+    }
+    send(res, 200, readFileSync(file, "utf8"), {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+    });
+    return;
+  }
+
+  if (apiPath === "/api/predictive-study-v15") {
+    serveJsonArtifactFile(res, join(ROOT, "research", "modeling", "output", "predictive_study_v15.json"), {
+      missingBody: { ok: false, status: "missing", error: "predictive_study_v15.json ausente.", hint: "npm run model:study-v15" },
+    });
+    return;
+  }
+
+  if (apiPath === "/api/predictive-lab-reference") {
+    handlePredictiveLabReferenceApi(req, res);
+    return;
+  }
+
+  if (apiPath === "/api/predictive-study-v16") {
+    serveJsonArtifactFile(res, join(ROOT, "research", "modeling", "output", "predictive_study_v16.json"), {
+      missingBody: { ok: false, status: "missing", error: "predictive_study_v16.json ausente.", hint: "npm run model:study-v16" },
+    });
+    return;
+  }
+
+  if (apiPath === "/api/predictive-study-v17") {
+    serveJsonArtifactFile(res, join(ROOT, "research", "modeling", "output", "predictive_study_v17.json"), {
+      missingBody: { ok: false, status: "missing", error: "predictive_study_v17.json ausente.", hint: "npm run model:study-v17" },
+    });
+    return;
+  }
+
+  if (apiPath === "/api/predictive-study-v2") {
+    serveJsonArtifactFile(res, join(ROOT, "research", "modeling", "output", "predictive_study_v2.json"), {
+      missingBody: { ok: false, status: "missing", error: "predictive_study_v2.json ausente.", hint: "npm run model:study-v2" },
+    });
+    return;
+  }
+
+  if (apiPath === "/api/pre-audit") {
+    const file = join(ROOT, "research", "modeling", "output", "pre_audit.json");
+    if (!existsSync(file)) {
+      sendJson(res, 404, { error: "pre_audit.json ausente." });
+      return;
+    }
+    send(res, 200, readFileSync(file, "utf8"), {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+    });
+    return;
+  }
+
   if (apiPath === "/api/modeling-results") {
     const file = join(ROOT, "research", "modeling", "output", "modeling_results.json");
     if (!existsSync(file)) {
@@ -236,6 +323,11 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (apiPath.startsWith("/api/")) {
+    sendApiNotFound(res, apiPath);
+    return;
+  }
+
   if (url.pathname.startsWith("/lib/")) {
     const rel = decodeURIComponent(url.pathname.slice("/lib/".length));
     const libPath = resolve(ROOT, "lib", rel);
@@ -250,7 +342,8 @@ const server = createServer(async (req, res) => {
 
   let filePath = safeFilePath(url.pathname);
   if (!filePath || !existsSync(filePath) || !statSync(filePath).isFile()) {
-    if (url.pathname === "/" || !extname(url.pathname)) {
+    const spaFallback = (url.pathname === "/" || !extname(url.pathname)) && !url.pathname.startsWith("/api/");
+    if (spaFallback) {
       filePath = join(ROOT, "public", "index.html");
     }
   }
@@ -268,6 +361,7 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, () => {
   const env = describeEnvStatus();
   console.log(`Health Score dashboard em http://localhost:${PORT}`);
+  console.log(`API Panorama: GET http://localhost:${PORT}/api/research-panorama`);
   console.log(env.line);
   if (!env.ready) return;
   probeDataRead()
