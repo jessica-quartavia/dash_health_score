@@ -55,7 +55,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS)
 
 async function loadAuthConfig() {
   if (cachedConfig) return cachedConfig;
-  const res = await fetchWithTimeout("/api/session/config", { method: "GET" });
+  const res = await fetchWithTimeout("/api/session-config", { method: "GET" });
   const body = await res.json().catch(() => ({}));
   if (!res.ok || !body.url || !body.anonKey) {
     throw new Error(body.error || "Configuração de login indisponível.");
@@ -94,7 +94,7 @@ async function inferRequireAuthFromDataApi() {
 
 export async function fetchAuthPolicy() {
   try {
-    const res = await fetchWithTimeout("/api/session/policy", { method: "GET", cache: "no-store" });
+    const res = await fetchWithTimeout("/api/session-policy", { method: "GET", cache: "no-store" });
     if (res.ok) return res.json();
   } catch {
     /* timeout / rede */
@@ -130,7 +130,7 @@ export async function ensureCorporateSession({ onStatus } = {}) {
 
   let session = readStoredSession();
   if (session) {
-    const me = await fetchWithTimeout("/api/session/me", { headers: authHeaders() });
+    const me = await fetchWithTimeout("/api/session-me", { headers: authHeaders() });
     if (me.ok) return { required: true, session, email: (await me.json()).email, policy };
     clearStoredSession();
     session = null;

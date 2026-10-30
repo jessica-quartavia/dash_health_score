@@ -60,11 +60,11 @@ test("Vercel — rewrite SPA não captura /api (sem rewrite identidade em /api)"
   assert.equal(apiIdentity, false);
 });
 
-test("Vercel — rotas de sessão usam /api/session (não /api/auth reservado)", () => {
+test("Vercel — rotas de sessão em segmento único (session-policy)", () => {
   const dispatch = readFileSync(join(ROOT, "lib", "api", "dispatch-http-api.mjs"), "utf8");
-  assert.match(dispatch, /\/api\/session\/policy/);
-  assert.match(dispatch, /\/api\/session\/config/);
-  assert.match(dispatch, /\/api\/session\/me/);
+  assert.match(dispatch, /\/api\/session-policy/);
+  assert.match(dispatch, /\/api\/session-config/);
+  assert.match(dispatch, /\/api\/session-me/);
   assert.doesNotMatch(dispatch, /path === "\/api\/auth\/policy"/);
 });
 
